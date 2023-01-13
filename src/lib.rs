@@ -66,6 +66,7 @@ impl Error for ArgParseError {}
 #[derive(Debug, Clone, Default)]
 pub struct ArgumentParser {
     args: Vec<Argument>,
+    pub binary: Option<String>,
 }
 
 impl ArgumentParser {
@@ -87,7 +88,7 @@ impl ArgumentParser {
     /// Parses from the provided arguments
     pub fn parse_args(&mut self, args: Vec<String>) -> Result<Vec<String>, ArgParseError> {
         let mut args = args.iter();
-        args.next();
+        self.binary = args.next().cloned();
 
         let mut remainder = Vec::new();
 
