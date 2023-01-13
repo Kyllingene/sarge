@@ -20,7 +20,7 @@ pub struct Argument {
     tag: Tag,
     typ: ArgType,
 
-    val: Option<ArgValue>,
+    pub val: Option<ArgValue>,
 }
 
 impl Argument {
