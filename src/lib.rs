@@ -80,15 +80,12 @@ impl ArgumentParser {
     }
 
     /// Parse the arguments
-    pub fn parse(&mut self) -> Result<(&Vec<Argument>, Vec<String>), ArgParseError> {
+    pub fn parse(&mut self) -> Result<Vec<String>, ArgParseError> {
         self.parse_args(env::args().collect::<Vec<_>>())
     }
 
     /// Parses from the provided arguments
-    pub fn parse_args(
-        &mut self,
-        args: Vec<String>,
-    ) -> Result<(&Vec<Argument>, Vec<String>), ArgParseError> {
+    pub fn parse_args(&mut self, args: Vec<String>) -> Result<Vec<String>, ArgParseError> {
         let mut args = args.iter();
         args.next();
 
@@ -133,7 +130,7 @@ impl ArgumentParser {
             }
         }
 
-        Ok((&self.args, remainder))
+        Ok(remainder)
     }
 
     /// Finds an argument by tag.
@@ -245,7 +242,7 @@ mod tests {
             Err(e) => {
                 panic!("Failed to parse second arguments: {}", e);
             }
-            Ok(r) => { r.1 }
+            Ok(r) => r,
         };
 
         assert_eq!(
