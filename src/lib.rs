@@ -198,6 +198,81 @@ impl ArgumentParser {
     }
 }
 
+/// Macro to ease argument creation.
+/// 
+/// Example:
+/// ```
+/// use sarge::{arg, Tag, ArgType, Argument};
+/// 
+/// // equivalent to `Argument::new(Flag::Single('h'), ArgType::Flag);`
+/// arg!(flag, single, 'h');
+/// 
+/// // equivalent to `Argument::new(Flag::Double("num".into()), ArgType::Integer);`
+/// arg!(int, double, "num");
+/// 
+/// // equivalent to `Argument::new(Flag::Both('a', "bc".into()), ArgType::String);`
+/// arg!(str, both, 'a', "bc");
+/// ```
+#[macro_export]
+macro_rules! arg {
+    ( flag, single, $tag:expr ) => {
+        Argument::new(Tag::Single($tag.into()), ArgType::Flag)
+    };
+    ( flag, double, $tag:expr ) => {
+        Argument::new(Tag::Double($tag.into()), ArgType::Flag)
+    };
+    ( flag, both, $single:expr, $double:expr ) => {
+        Argument::new(Tag::Both($single.into(), $double.into()), ArgType::Flag)
+    };
+
+    ( int, single, $tag:expr ) => {
+        Argument::new(Tag::Single($tag.into()), ArgType::Integer)
+    };
+    ( int, double, $tag:expr ) => {
+        Argument::new(Tag::Double($tag.into()), ArgType::Integer)
+    };
+
+    ( int, both, $single:expr, $double:expr ) => {
+        Argument::new(Tag::Both($single.into(), $double.into()), ArgType::Integer)
+    };
+
+    ( str, single, $tag:expr ) => {
+        Argument::new(Tag::Single($tag.into()), ArgType::String)
+    };
+    ( str, double, $tag:expr ) => {
+        Argument::new(Tag::Double($tag.into()), ArgType::String)
+    };
+
+    ( str, both, $single:expr, $double:expr ) => {
+        Argument::new(Tag::Both($single.into(), $double.into()), ArgType::String)
+    };
+}
+
+/// Macro to ease getting arguments from a parser.
+/// 
+/// Example:
+/// ```
+/// use sarge::{get_arg, Tag, ArgType, Argument, ArgumentParser};
+/// 
+/// let mut parser = ArgumentParser::new();
+/// parser.add(Argument::new(Tag::Double("help".into()), ArgType::Flag));
+/// 
+/// // Equivalent to `parser.arg(Tag::Double("help".into())).expect("Failed to get argument");`
+/// get_arg!(parser, double, "help").expect("Failed to get argument");
+/// ```
+#[macro_export]
+macro_rules! get_arg {
+    ( $parser:ident, single, $tag:expr ) => {
+        $parser.arg(Tag::Single($tag.into()))
+    };
+    ( $parser:ident, double, $tag:expr ) => {
+        $parser.arg(Tag::Double($tag.into()))
+    };
+    ( $parser:ident, both, $single:expr, $double:expr ) => {
+        $parser.arg(Tag::Both($single.into(), $double.into()))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -263,5 +338,34 @@ mod tests {
         );
 
         assert_eq!(remainder[0], "Jonah".to_string());
+    }
+
+    #[test]
+    fn macros() {
+        let mut parser = ArgumentParser::new();
+        parser.add(arg!(flag, single, 'a'));
+        parser.add(arg!(flag, double, "bc"));
+        parser.add(arg!(flag, both, 'd', "ef"));
+
+        parser.add(arg!(int, single, 'g'));
+        parser.add(arg!(int, double, "hi"));
+        parser.add(arg!(int, both, 'j', "kl"));
+
+        parser.add(arg!(str, single, 'm'));
+        parser.add(arg!(str, double, "no"));
+        parser.add(arg!(str, both, 'p', "qr"));
+
+        get_arg!(parser, single, 'a').expect("Failed to get -a");
+        get_arg!(parser, double, "bc").expect("Failed to get --bc");
+        get_arg!(parser, both, 'd', "ef").expect("Failed to get -d, --ef");
+
+        get_arg!(parser, single, 'g').expect("Failed to get -g");
+        get_arg!(parser, double, "hi").expect("Failed to get --hi");
+        get_arg!(parser, both, 'j', "kl").expect("Failed to get -j, --kl");
+
+        get_arg!(parser, single, 'm').expect("Failed to get -m");
+        get_arg!(parser, double, "no").expect("Failed to get --no");
+        get_arg!(parser, both, 'p', "qr").expect("Failed to get -p, --qr");
+
     }
 }
