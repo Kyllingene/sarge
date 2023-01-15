@@ -273,6 +273,43 @@ macro_rules! get_arg {
     };
 }
 
+/// Like `get_arg!`, but instead returns an option containing its ArgValue
+/// 
+/// Example:
+/// ```
+/// use sarge::{arg, get_arg, get_val, Tag, ArgType, ArgValue, Argument, ArgumentParser};
+/// 
+/// let mut parser = ArgumentParser::new();
+/// parser.add(arg!(flag, double, "help"));
+/// parser.parse_args(vec!["abc".into(), "--help".into()]);
+///
+/// assert!(get_val!(parser, double, "help").expect("Failed to get argument value") == ArgValue::Flag(true));
+/// ```
+#[macro_export]
+macro_rules! get_val {
+    ( $parser:ident, single, $tag:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Single($tag.into())) {
+            return arg.val.clone();
+        }
+
+        None
+    })()};
+    ( $parser:ident, double, $tag:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Double($tag.into())) {
+            return arg.val.clone();
+        }
+
+        None
+    })()};
+    ( $parser:ident, both, $single:expr, $double:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Both($single.into(), $double.into())) {
+            return arg.val.clone();
+        }
+
+        None
+    })()};
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -366,6 +403,12 @@ mod tests {
         get_arg!(parser, single, 'm').expect("Failed to get -m");
         get_arg!(parser, double, "no").expect("Failed to get --no");
         get_arg!(parser, both, 'p', "qr").expect("Failed to get -p, --qr");
+
+        parser.parse_args(vec![
+            "abc", "-a", "--hi", "10", "-p", "Jack"
+        ].iter().map(|s| s.to_string()).collect()).expect("Failed to parse args");
+
+        assert_eq!(get_val!(parser, single, 'a').unwrap(), ArgValue::Flag(true));
 
     }
 }
