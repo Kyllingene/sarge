@@ -42,6 +42,41 @@ pub enum ArgValue {
     Integer(i32),
 }
 
+impl ArgValue {
+    /// Returns the contained Flag value. Consumes the enum.
+    /// 
+    /// Panics if self is ArgValue::Integer or ArgValue::String
+    pub fn get_flag(self) -> bool {
+        if let Self::Flag(b) = self {
+            return b;
+        }
+
+        panic!("Cannot get_str({:?})", self);
+    }
+
+    /// Returns the contained Integer value. Consumes the enum.
+    /// 
+    /// Panics if self is ArgValue::Flag or ArgValue::String
+    pub fn get_int(self) -> i32 {
+        if let Self::Integer(i) = self {
+            return i;
+        }
+
+        panic!("Cannot get_str({:?})", self);
+    }
+
+    /// Returns the contained String value. Consumes the enum.
+    /// 
+    /// Panics if self is ArgValue::Flag or ArgValue::Integer
+    pub fn get_str(self) -> String {
+        if let Self::String(s) = self {
+            return s;
+        }
+
+        panic!("Cannot get_str({:?})", self);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ArgParseError {
     InvalidInteger(String),
