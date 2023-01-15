@@ -15,6 +15,16 @@ pub enum Tag {
     Both(char, String),
 }
 
+impl Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Single(ch) => write!(f, "-{ch}"),
+            Self::Double(s) => write!(f, "--{s}"),
+            Self::Both(ch, s) => write!(f, "-{ch} / --{s}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Argument {
     tag: Tag,
@@ -105,7 +115,7 @@ pub struct ArgumentParser {
 }
 
 impl ArgumentParser {
-    /// Returns an empty
+    /// Returns an empty ArgumentParser.
     pub fn new() -> Self {
         Self::default()
     }
@@ -345,6 +355,90 @@ macro_rules! get_val {
     })()};
 }
 
+/// Gets an argument from the parser, returning the contained value.
+/// 
+/// Panics if the argument doesn't exist, or if the arguments type isn't ArgType::Flag.
+#[macro_export]
+macro_rules! get_flag {
+    ( $parser:ident, single, $tag:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Single($tag.into())) {
+            return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_flag();
+        }
+
+        panic!("Couldn't find argument {}", Tag::Single($tag.into()));
+    })()};
+    ( $parser:ident, double, $tag:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Double($tag.into())) {
+            return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_flag();
+        }
+
+        panic!("Couldn't find argument {}", Tag::Double($tag.into()));
+    })()};
+    ( $parser:ident, both, $single:expr, $double:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Both($single.into(), $double.into())) {
+            return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_flag();
+        }
+
+        panic!("Couldn't find argument {}", Tag::Both($single.into(), $double.into()));
+    })()};
+}
+
+/// Gets an argument from the parser, returning the contained value.
+/// 
+/// Panics if the argument doesn't exist, or if the arguments type isn't ArgType::Integer.
+#[macro_export]
+macro_rules! get_int {
+    ( $parser:ident, single, $tag:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Single($tag.into())) {
+            return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_int();
+        }
+
+        panic!("Couldn't find argument {}", Tag::Single($tag.into()));
+    })()};
+    ( $parser:ident, double, $tag:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Double($tag.into())) {
+            return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_int();
+        }
+
+        panic!("Couldn't find argument {}", Tag::Double($tag.into()));
+    })()};
+    ( $parser:ident, both, $single:expr, $double:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Both($single.into(), $double.into())) {
+            return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_int();
+        }
+
+        panic!("Couldn't find argument {}", Tag::Both($single.into(), $double.into()));
+    })()};
+}
+
+/// Gets an argument from the parser, returning the contained value.
+/// 
+/// Panics if the argument doesn't exist, or if the arguments type isn't ArgType::String.
+#[macro_export]
+macro_rules! get_str {
+    ( $parser:ident, single, $tag:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Single($tag.into())) {
+            return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_str();
+        }
+
+        panic!("Couldn't find argument {}", Tag::Single($tag.into()));
+    })()};
+    ( $parser:ident, double, $tag:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Double($tag.into())) {
+            return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_str();
+        }
+
+        panic!("Couldn't find argument {}", Tag::Double($tag.into()));
+    })()};
+    ( $parser:ident, both, $single:expr, $double:expr ) => { (|| {
+        if let Some(arg) = $parser.arg(Tag::Both($single.into(), $double.into())) {
+            return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_str();
+        }
+
+        panic!("Couldn't find argument {}", Tag::Both($single.into(), $double.into()));
+    })()};
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -443,7 +537,8 @@ mod tests {
             "abc", "-a", "--hi", "10", "-p", "Jack"
         ].iter().map(|s| s.to_string()).collect()).expect("Failed to parse args");
 
-        assert_eq!(get_val!(parser, single, 'a').unwrap(), ArgValue::Flag(true));
-
+        assert_eq!(get_flag!(parser, single, 'a'), true);
+        assert_eq!(get_int!(parser, double, "hi"), 10);
+        assert_eq!(get_str!(parser, both, 'p', "qr"), "Jack".to_string());
     }
 }
