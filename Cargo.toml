@@ -1,6 +1,6 @@
 [package]
 name = "sarge"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2021"
 
 authors = ["Kyllingene"]
@@ -8,7 +8,6 @@ description = "std-only command-line arguments parser"
 repository = "https://github.com/kyllingene/sarge"
 
 license = "MIT"
-license-file = "LICENSE.txt"
 
 keywords = ["cli", "argparse", "command-line"]
 categories = ["command-line-interface", ]
