@@ -506,6 +506,11 @@ mod tests {
         }
 
         assert_eq!(
+            parser.binary,
+            Some("abc".into())
+        );
+
+        assert_eq!(
             parser
                 .arg(Tag::Long("name".into()))
                 .expect("Couldn't find tag --name")
