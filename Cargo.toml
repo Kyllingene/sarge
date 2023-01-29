@@ -1,7 +1,17 @@
 [package]
 name = "sarge"
-version = "1.1.2"
+version = "2.0.0"
 edition = "2021"
+
+authors = ["Kyllingene"]
+description = "std-only command-line arguments parser"
+repository = "https://github.com/kyllingene/sarge"
+
+license = "MIT"
+license-file = "LICENSE.txt"
+
+keywords = ["cli", "argparse", "command-line"]
+categories = ["command-line-interface", ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
