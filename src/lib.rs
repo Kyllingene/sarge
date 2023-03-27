@@ -306,35 +306,35 @@ impl ArgumentParser {
 #[macro_export]
 macro_rules! arg {
     ( flag, short, $tag:expr ) => {
-        Argument::new(sarge::Tag::Short($tag.into()), sarge::ArgType::Flag)
+        $crate::Argument::new($crate::Tag::Short($tag.into()), $crate::ArgType::Flag)
     };
     ( flag, long, $tag:expr ) => {
-        Argument::new(sarge::Tag::Long($tag.into()), sarge::ArgType::Flag)
+        $crate::Argument::new($crate::Tag::Long($tag.into()), $crate::ArgType::Flag)
     };
     ( flag, both, $short:expr, $long:expr ) => {
-        Argument::new(sarge::Tag::Both($short.into(), $long.into()), sarge::ArgType::Flag)
+        $crate::Argument::new($crate::Tag::Both($short.into(), $long.into()), $crate::ArgType::Flag)
     };
 
     ( int, short, $tag:expr ) => {
-        Argument::new(sarge::Tag::Short($tag.into()), sarge::ArgType::Integer)
+        $crate::Argument::new($crate::Tag::Short($tag.into()), $crate::ArgType::Integer)
     };
     ( int, long, $tag:expr ) => {
-        Argument::new(sarge::Tag::Long($tag.into()), sarge::ArgType::Integer)
+        $crate::Argument::new($crate::Tag::Long($tag.into()), $crate::ArgType::Integer)
     };
 
     ( int, both, $short:expr, $long:expr ) => {
-        Argument::new(sarge::Tag::Both($short.into(), $long.into()), sarge::ArgType::Integer)
+        $crate::Argument::new($crate::Tag::Both($short.into(), $long.into()), $crate::ArgType::Integer)
     };
 
     ( str, short, $tag:expr ) => {
-        Argument::new(sarge::Tag::Short($tag.into()), sarge::ArgType::String)
+        $crate::Argument::new($crate::Tag::Short($tag.into()), $crate::ArgType::String)
     };
     ( str, long, $tag:expr ) => {
-        Argument::new(sarge::Tag::Long($tag.into()), sarge::ArgType::String)
+        $crate::Argument::new($crate::Tag::Long($tag.into()), $crate::ArgType::String)
     };
 
     ( str, both, $short:expr, $long:expr ) => {
-        Argument::new(sarge::Tag::Both($short.into(), $long.into()), sarge::ArgType::String)
+        $crate::Argument::new($crate::Tag::Both($short.into(), $long.into()), $crate::ArgType::String)
     };
 }
 
@@ -353,13 +353,13 @@ macro_rules! arg {
 #[macro_export]
 macro_rules! get_arg {
     ( $parser:ident, short, $tag:expr ) => {
-        $parser.arg(sarge::Tag::Short($tag.into()))
+        $parser.arg($crate::Tag::Short($tag.into()))
     };
     ( $parser:ident, long, $tag:expr ) => {
-        $parser.arg(sarge::Tag::Long($tag.into()))
+        $parser.arg($crate::Tag::Long($tag.into()))
     };
     ( $parser:ident, both, $short:expr, $long:expr ) => {
-        $parser.arg(sarge::Tag::Both($short.into(), $long.into()))
+        $parser.arg($crate::Tag::Both($short.into(), $long.into()))
     };
 }
 
@@ -378,21 +378,21 @@ macro_rules! get_arg {
 #[macro_export]
 macro_rules! get_val {
     ( $parser:ident, short, $tag:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(sarge::Tag::Short($tag.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Short($tag.into())) {
             return arg.val.clone();
         }
 
         None
     })()};
     ( $parser:ident, long, $tag:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(sarge::Tag::Long($tag.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Long($tag.into())) {
             return arg.val.clone();
         }
 
         None
     })()};
     ( $parser:ident, both, $short:expr, $long:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(sarge::Tag::Both($short.into(), $long.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Both($short.into(), $long.into())) {
             return arg.val.clone();
         }
 
@@ -406,25 +406,25 @@ macro_rules! get_val {
 #[macro_export]
 macro_rules! get_flag {
     ( $parser:ident, short, $tag:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(sarge::Tag::Short($tag.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Short($tag.into())) {
             return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_flag();
         }
 
-        panic!("Couldn't find argument {}", sarge::Tag::Short($tag.into()));
+        panic!("Couldn't find argument {}", $crate::Tag::Short($tag.into()));
     })()};
     ( $parser:ident, long, $tag:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(sarge::Tag::Long($tag.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Long($tag.into())) {
             return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_flag();
         }
 
-        panic!("Couldn't find argument {}", sarge::Tag::Long($tag.into()));
+        panic!("Couldn't find argument {}", $crate::Tag::Long($tag.into()));
     })()};
     ( $parser:ident, both, $short:expr, $long:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(Tag::Both($short.into(), $long.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Both($short.into(), $long.into())) {
             return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_flag();
         }
 
-        panic!("Couldn't find argument {}", sarge::Tag::Both($short.into(), $long.into()));
+        panic!("Couldn't find argument {}", $crate::Tag::Both($short.into(), $long.into()));
     })()};
 }
 
@@ -434,25 +434,25 @@ macro_rules! get_flag {
 #[macro_export]
 macro_rules! get_int {
     ( $parser:ident, short, $tag:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(sarge::Tag::Short($tag.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Short($tag.into())) {
             return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_int();
         }
 
-        panic!("Couldn't find argument {}", sarge::Tag::Short($tag.into()));
+        panic!("Couldn't find argument {}", ::Tag::Short($tag.into()));
     })()};
     ( $parser:ident, long, $tag:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(sarge::Tag::Long($tag.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Long($tag.into())) {
             return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_int();
         }
 
-        panic!("Couldn't find argument {}", sarge::Tag::Long($tag.into()));
+        panic!("Couldn't find argument {}", $crate::Tag::Long($tag.into()));
     })()};
     ( $parser:ident, both, $short:expr, $long:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(sarge::Tag::Both($short.into(), $long.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Both($short.into(), $long.into())) {
             return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_int();
         }
 
-        panic!("Couldn't find argument {}", sarge::Tag::Both($short.into(), $long.into()));
+        panic!("Couldn't find argument {}", $crate::Tag::Both($short.into(), $long.into()));
     })()};
 }
 
@@ -462,25 +462,25 @@ macro_rules! get_int {
 #[macro_export]
 macro_rules! get_str {
     ( $parser:ident, short, $tag:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(sarge::Tag::Short($tag.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Short($tag.into())) {
             return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_str();
         }
 
-        panic!("Couldn't find argument {}", sarge::Tag::Short($tag.into()));
+        panic!("Couldn't find argument {}", $crate::Tag::Short($tag.into()));
     })()};
     ( $parser:ident, long, $tag:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(sarge::Tag::Long($tag.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Long($tag.into())) {
             return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_str();
         }
 
-        panic!("Couldn't find argument {}", sarge::Tag::Long($tag.into()));
+        panic!("Couldn't find argument {}", $crate::Tag::Long($tag.into()));
     })()};
     ( $parser:ident, both, $short:expr, $long:expr ) => { (|| {
-        if let Some(arg) = $parser.arg(sarge::Tag::Both($short.into(), $long.into())) {
+        if let Some(arg) = $parser.arg($crate::Tag::Both($short.into(), $long.into())) {
             return arg.val.clone().expect("Failed to get argument value: arg.val == None").get_str();
         }
 
-        panic!("Couldn't find argument {}", sarge::Tag::Both($short.into(), $long.into()));
+        panic!("Couldn't find argument {}", $crate::Tag::Both($short.into(), $long.into()));
     })()};
 }
 
