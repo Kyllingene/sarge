@@ -175,7 +175,14 @@ impl ArgumentParser {
         });
 
         while let Some(arg) = args.next() {
-            if let Some(long) = arg.strip_prefix("--") {
+            if let Some(mut long) = arg.strip_prefix("--") {
+                let val = if let Some((left, right)) = arg.split_once('=') {
+                    long = left;
+                    Some(right.to_string())
+                } else {
+                    args.next().cloned()
+                };
+
                 let mut arg = self.arg_mut(Tag::Long(long.to_string()))
                     .ok_or(ArgParseError::UnknownFlag(long.to_string()))?;
 
@@ -183,7 +190,7 @@ impl ArgumentParser {
                     ArgType::Flag => arg.val = Some(ArgValue::Flag(true)),
                     ArgType::Integer => arg.val = Some(
                         ArgValue::Integer(
-                            args.next()
+                            val
                                 .ok_or(ArgParseError::MissingValue(long.to_string()))?
                                 .parse()
                                 .map_err(|e: ParseIntError| ArgParseError::InvalidInteger(e.to_string()))?
@@ -191,7 +198,7 @@ impl ArgumentParser {
                     ),
                     ArgType::String => arg.val = Some(
                         ArgValue::String(
-                            args.next()
+                            val
                                 .ok_or(ArgParseError::MissingValue(long.to_string()))?
                                 .clone()
                         )
@@ -199,7 +206,7 @@ impl ArgumentParser {
                 }
             } else if let Some(short) = arg.strip_prefix('-') {
                 if short.is_empty() {
-                    return Err(ArgParseError::UnknownFlag(String::from('-')));
+                    remainder.push(String::from("-"));
                 } else if short.len() == 1 {
                     let mut arg = self.arg_mut(Tag::Short(short.chars().next().unwrap()))
                         .ok_or(ArgParseError::UnknownFlag(short.to_string()))?;
