@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+pub mod prelude;
+
 use std::{env, error::Error, fmt::Display, num::ParseIntError};
 
 #[derive(Debug, Clone, Copy, Default)]
