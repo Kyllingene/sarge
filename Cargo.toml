@@ -4,7 +4,7 @@ version = "4.0.0"
 edition = "2021"
 
 authors = ["Kyllingene"]
-description = "std-only command-line arguments parser"
+description = "Zero-dependencies command-line arguments parser."
 repository = "https://github.com/kyllingene/sarge"
 
 license = "MIT"
