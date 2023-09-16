@@ -2,163 +2,82 @@
 
 pub mod prelude;
 
-use std::{env, error::Error, fmt::Display, num::ParseIntError};
+use std::{
+    env,
+    fmt::Debug,
+    marker::PhantomData,
+    num::{ParseFloatError, ParseIntError},
+    sync::{Arc, Mutex},
+};
 
-/// The type of an argument. Defaults to `Flag`.
-#[derive(Debug, Clone, Copy, Default)]
-pub enum ArgType {
-    /// A boolean flag (e.g. `-h`).
-    #[default]
-    Flag,
-    /// A string value (e.g. `--output a.txt`).
-    String,
-    /// An integer (i64) value (e.g. `-n 17`).
-    Integer,
-}
+pub mod tag;
+use tag::Tag;
 
-/// An argument tag, or name.
-///
-/// `Short` means one dash and one character, e.g. `-h`.
-/// `Long` means two dashes and any number of characters,
-/// e.g. `--help`. `Both` means all of the above, e.g.
-/// `-h` OR `--help`.
-#[derive(Debug, Clone)]
-pub enum Tag {
-    Short(char),
-    Long(String),
-    Both(char, String),
-}
+mod error;
+pub use error::ArgParseError;
 
-impl PartialEq for Tag {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            Self::Short(s) => match other {
-                Self::Short(o) => s == o,
-                Self::Both(o, _) => s == o,
-                _ => false,
-            },
-            Self::Long(s) => match other {
-                Self::Long(o) => s == o,
-                Self::Both(_, o) => s == o,
-                _ => false,
-            },
-            Self::Both(s1, s2) => match other {
-                Self::Short(o) => s1 == o,
-                Self::Long(o) => s2 == o,
-                Self::Both(o1, o2) => (s1 == o1) || (s2 == o2),
-            },
-        }
-    }
-}
+mod types;
+use types::{ArgumentType, ArgumentValueType};
 
-impl Display for Tag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Short(ch) => write!(f, "-{ch}"),
-            Self::Long(s) => write!(f, "--{s}"),
-            Self::Both(ch, s) => write!(f, "-{ch} / --{s}"),
-        }
-    }
-}
+#[cfg(test)]
+mod test;
 
-/// An argument. Consists of a [`Tag`], [type][`ArgType`],
-/// and a possible [value][`ArgValue`].
-///
-/// If the type is [`ArgType::Flag`], the value will always
-/// be `Some`. Otherwise, it will be `None` when no the argument
-/// wasn't supplied.
-#[derive(Debug, Clone)]
-pub struct Argument {
-    tag: Tag,
-    typ: ArgType,
-
-    pub val: Option<ArgValue>,
-}
-
-impl Argument {
-    /// Creates a new argument.
-    pub fn new(tag: Tag, typ: ArgType) -> Self {
-        Self {
-            tag,
-            typ,
-
-            val: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ArgValue {
-    Flag(bool),
+#[derive(Clone, Debug, PartialEq)]
+pub enum ArgumentValue {
+    Bool(bool),
     String(String),
-    Integer(i32),
+    I64(i64),
+    U64(u64),
+    Float(f64),
 }
 
-impl ArgValue {
-    /// Returns the contained Flag value. Consumes the enum.
-    ///
-    /// Panics if self is ArgValue::Integer or ArgValue::String
-    pub fn get_flag(self) -> bool {
-        if let Self::Flag(b) = self {
-            return b;
-        }
-
-        panic!("Cannot get_flag({self:?})");
-    }
-
-    /// Returns the contained Integer value. Consumes the enum.
-    ///
-    /// Panics if self is ArgValue::Flag or ArgValue::String
-    pub fn get_int(self) -> i32 {
-        if let Self::Integer(i) = self {
-            return i;
-        }
-
-        panic!("Cannot get_int({self:?})");
-    }
-
-    /// Returns the contained String value. Consumes the enum.
-    ///
-    /// Panics if self is ArgValue::Flag or ArgValue::Integer
-    pub fn get_str(self) -> String {
-        if let Self::String(s) = self {
-            return s;
-        }
-
-        panic!("Cannot get_str({self:?})");
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum ArgParseError {
-    InvalidInteger(String),
-    UnknownFlag(String),
-    UnexpectedArgument(String),
-    MissingValue(String),
-    ConsumedValue(String),
-}
-
-impl Display for ArgParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl ArgumentValue {
+    pub fn typ(&self) -> ArgumentValueType {
         match self {
-            Self::InvalidInteger(s) => write!(f, "Invalid integer: `{s}`"),
-            Self::UnknownFlag(s) => write!(f, "Unknown flag: `{s}`"),
-            Self::UnexpectedArgument(s) => write!(f, "Unexpected argument: `{s}`"),
-            Self::MissingValue(s) => write!(f, "Expected value for `{s}`"),
-            Self::ConsumedValue(s) => write!(
-                f,
-                "Multiple arguments in `{s}` tried to consume the same value"
-            ),
+            Self::Bool(_) => ArgumentValueType::Bool,
+            Self::String(_) => ArgumentValueType::String,
+            Self::I64(_) => ArgumentValueType::I64,
+            Self::U64(_) => ArgumentValueType::U64,
+            Self::Float(_) => ArgumentValueType::Float,
         }
     }
 }
 
-impl Error for ArgParseError {}
+#[derive(Clone, Debug, PartialEq)]
+struct InternalArgument {
+    tag: Tag,
+    typ: ArgumentValueType,
+    val: Option<ArgumentValue>,
+}
+
+/// A reference to an argument. Use this to
+/// retrieve the value of an argument.
+pub struct ArgumentRef<'a, T: ArgumentType> {
+    parser: &'a ArgumentParser,
+    i: usize,
+    _marker: PhantomData<T>,
+}
+
+impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
+    /// Retrieve the value of the argument.
+    /// Consumes the `ArgumentRef`.
+    pub fn get(self) -> Option<T> {
+        self.get_keep()
+    }
+
+    /// Retrieve the value of the argument.
+    /// Does not consume the `ArgumentRef`.
+    pub fn get_keep(&self) -> Option<T> {
+        // let arg = self.parser.args.lock().unwrap()[self.i].clone();
+        let args = self.parser.args.lock().unwrap();
+        T::from_argval(args[self.i].clone().val?)
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct ArgumentParser {
-    args: Vec<Argument>,
-    pub binary: Option<String>,
+    args: Arc<Mutex<Vec<InternalArgument>>>,
+    binary: Arc<Mutex<Option<String>>>,
 }
 
 impl ArgumentParser {
@@ -168,25 +87,45 @@ impl ArgumentParser {
     }
 
     /// Adds an argument to the parser.
-    pub fn add(&mut self, arg: Argument) {
-        self.args.push(arg);
+    pub fn add<T: ArgumentType>(&self, tag: Tag) -> ArgumentRef<T> {
+        let typ = T::to_argtyp();
+        let arg = InternalArgument {
+            tag,
+            typ,
+            val: None,
+        };
+
+        let mut args = self.args.lock().unwrap();
+        let i = args.len();
+        args.push(arg);
+
+        ArgumentRef {
+            parser: self,
+            i,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Retrieves the binary, if any.
+    pub fn binary(&self) -> Option<String> {
+        self.binary.lock().unwrap().clone()
     }
 
     /// Parse arguments from std::env::args.
-    pub fn parse(&mut self) -> Result<Vec<String>, ArgParseError> {
-        self.parse_args(env::args().collect::<Vec<_>>())
+    pub fn parse(&self) -> Result<Vec<String>, ArgParseError> {
+        self.parse_args(env::args().collect::<Vec<_>>().as_slice())
     }
 
     /// Parses the provided arguments.
-    pub fn parse_args(&mut self, args: Vec<String>) -> Result<Vec<String>, ArgParseError> {
+    pub fn parse_args(&self, args: &[String]) -> Result<Vec<String>, ArgParseError> {
         let mut args = args.iter();
-        self.binary = args.next().cloned();
+        *self.binary.lock().unwrap() = args.next().cloned();
 
         let mut remainder = Vec::new();
 
-        self.args.iter_mut().for_each(|arg| {
+        self.args.lock().unwrap().iter_mut().for_each(|arg| {
             arg.val = match arg.typ {
-                ArgType::Flag => Some(ArgValue::Flag(false)),
+                ArgumentValueType::Bool => Some(ArgumentValue::Bool(false)),
                 _ => None,
             };
         });
@@ -200,14 +139,16 @@ impl ArgumentParser {
                     args.next().cloned()
                 };
 
-                let mut arg = self
-                    .arg_mut(Tag::Long(long.to_string()))
+                let mut pre_args = self.args.lock().unwrap();
+                let arg = pre_args
+                    .iter_mut()
+                    .find(|arg| arg.tag.matches_long(long))
                     .ok_or(ArgParseError::UnknownFlag(long.to_string()))?;
 
                 match arg.typ {
-                    ArgType::Flag => arg.val = Some(ArgValue::Flag(true)),
-                    ArgType::Integer => {
-                        arg.val = Some(ArgValue::Integer(
+                    ArgumentValueType::Bool => arg.val = Some(ArgumentValue::Bool(true)),
+                    ArgumentValueType::I64 => {
+                        arg.val = Some(ArgumentValue::I64(
                             val.ok_or(ArgParseError::MissingValue(long.to_string()))?
                                 .parse()
                                 .map_err(|e: ParseIntError| {
@@ -215,8 +156,26 @@ impl ArgumentParser {
                                 })?,
                         ))
                     }
-                    ArgType::String => {
-                        arg.val = Some(ArgValue::String(
+                    ArgumentValueType::U64 => {
+                        arg.val = Some(ArgumentValue::U64(
+                            val.ok_or(ArgParseError::MissingValue(long.to_string()))?
+                                .parse()
+                                .map_err(|e: ParseIntError| {
+                                    ArgParseError::InvalidUnsignedInteger(e.to_string())
+                                })?,
+                        ))
+                    }
+                    ArgumentValueType::Float => {
+                        arg.val = Some(ArgumentValue::Float(
+                            val.ok_or(ArgParseError::MissingValue(long.to_string()))?
+                                .parse()
+                                .map_err(|e: ParseFloatError| {
+                                    ArgParseError::InvalidFloat(e.to_string())
+                                })?,
+                        ))
+                    }
+                    ArgumentValueType::String => {
+                        arg.val = Some(ArgumentValue::String(
                             val.ok_or(ArgParseError::MissingValue(long.to_string()))?
                                 .clone(),
                         ))
@@ -226,14 +185,17 @@ impl ArgumentParser {
                 if short.is_empty() {
                     remainder.push(String::from("-"));
                 } else if short.len() == 1 {
-                    let mut arg = self
-                        .arg_mut(Tag::Short(short.chars().next().unwrap()))
+                    let short = short.chars().next().unwrap();
+                    let mut pre_args = self.args.lock().unwrap();
+                    let arg = pre_args
+                        .iter_mut()
+                        .find(|arg| arg.tag.matches_short(short))
                         .ok_or(ArgParseError::UnknownFlag(short.to_string()))?;
 
                     match arg.typ {
-                        ArgType::Flag => arg.val = Some(ArgValue::Flag(true)),
-                        ArgType::Integer => {
-                            arg.val = Some(ArgValue::Integer(
+                        ArgumentValueType::Bool => arg.val = Some(ArgumentValue::Bool(true)),
+                        ArgumentValueType::I64 => {
+                            arg.val = Some(ArgumentValue::I64(
                                 args.next()
                                     .ok_or(ArgParseError::MissingValue(short.to_string()))?
                                     .parse()
@@ -242,8 +204,28 @@ impl ArgumentParser {
                                     })?,
                             ))
                         }
-                        ArgType::String => {
-                            arg.val = Some(ArgValue::String(
+                        ArgumentValueType::U64 => {
+                            arg.val = Some(ArgumentValue::U64(
+                                args.next()
+                                    .ok_or(ArgParseError::MissingValue(short.to_string()))?
+                                    .parse()
+                                    .map_err(|e: ParseIntError| {
+                                        ArgParseError::InvalidUnsignedInteger(e.to_string())
+                                    })?,
+                            ))
+                        }
+                        ArgumentValueType::Float => {
+                            arg.val = Some(ArgumentValue::Float(
+                                args.next()
+                                    .ok_or(ArgParseError::MissingValue(short.to_string()))?
+                                    .parse()
+                                    .map_err(|e: ParseFloatError| {
+                                        ArgParseError::InvalidFloat(e.to_string())
+                                    })?,
+                            ))
+                        }
+                        ArgumentValueType::String => {
+                            arg.val = Some(ArgumentValue::String(
                                 args.next()
                                     .ok_or(ArgParseError::MissingValue(short.to_string()))?
                                     .clone(),
@@ -252,37 +234,69 @@ impl ArgumentParser {
                     }
                 } else {
                     let mut consumed = false;
-                    for ch in short.chars() {
-                        let mut arg = self
-                            .arg_mut(Tag::Short(ch))
-                            .ok_or(ArgParseError::UnknownFlag(ch.to_string()))?;
+                    for short in short.chars() {
+                        let mut pre_args = self.args.lock().unwrap();
+                        let arg = pre_args
+                            .iter_mut()
+                            .find(|arg| arg.tag.matches_short(short))
+                            .ok_or(ArgParseError::UnknownFlag(short.to_string()))?;
 
                         match arg.typ {
-                            ArgType::Flag => arg.val = Some(ArgValue::Flag(true)),
-                            ArgType::Integer => {
+                            ArgumentValueType::Bool => arg.val = Some(ArgumentValue::Bool(true)),
+                            ArgumentValueType::I64 => {
                                 if consumed {
                                     return Err(ArgParseError::ConsumedValue(short.to_string()));
                                 }
 
                                 consumed = true;
-                                arg.val = Some(ArgValue::Integer(
+                                arg.val = Some(ArgumentValue::I64(
                                     args.next()
-                                        .ok_or(ArgParseError::MissingValue(ch.to_string()))?
+                                        .ok_or(ArgParseError::MissingValue(short.to_string()))?
                                         .parse()
                                         .map_err(|e: ParseIntError| {
                                             ArgParseError::InvalidInteger(e.to_string())
                                         })?,
                                 ))
                             }
-                            ArgType::String => {
+                            ArgumentValueType::U64 => {
                                 if consumed {
                                     return Err(ArgParseError::ConsumedValue(short.to_string()));
                                 }
 
                                 consumed = true;
-                                arg.val = Some(ArgValue::String(
+                                arg.val = Some(ArgumentValue::U64(
                                     args.next()
-                                        .ok_or(ArgParseError::MissingValue(ch.to_string()))?
+                                        .ok_or(ArgParseError::MissingValue(short.to_string()))?
+                                        .parse()
+                                        .map_err(|e: ParseIntError| {
+                                            ArgParseError::InvalidUnsignedInteger(e.to_string())
+                                        })?,
+                                ))
+                            }
+                            ArgumentValueType::Float => {
+                                if consumed {
+                                    return Err(ArgParseError::ConsumedValue(short.to_string()));
+                                }
+
+                                consumed = true;
+                                arg.val = Some(ArgumentValue::Float(
+                                    args.next()
+                                        .ok_or(ArgParseError::MissingValue(short.to_string()))?
+                                        .parse()
+                                        .map_err(|e: ParseFloatError| {
+                                            ArgParseError::InvalidInteger(e.to_string())
+                                        })?,
+                                ))
+                            }
+                            ArgumentValueType::String => {
+                                if consumed {
+                                    return Err(ArgParseError::ConsumedValue(short.to_string()));
+                                }
+
+                                consumed = true;
+                                arg.val = Some(ArgumentValue::String(
+                                    args.next()
+                                        .ok_or(ArgParseError::MissingValue(short.to_string()))?
                                         .clone(),
                                 ))
                             }
@@ -295,467 +309,5 @@ impl ArgumentParser {
         }
 
         Ok(remainder)
-    }
-
-    /// Finds an argument by tag.
-    pub fn arg(&self, tag: Tag) -> Option<&Argument> {
-        self.args.iter().find(|&arg| arg.tag == tag)
-    }
-
-    /// Returns all the arguments.
-    pub fn args(&self) -> &Vec<Argument> {
-        &self.args
-    }
-
-    /// Finds an argument by tag.
-    ///
-    /// Returns a mutable reference.
-    fn arg_mut(&mut self, tag: Tag) -> Option<&mut Argument> {
-        self.args.iter_mut().find(|arg| arg.tag == tag)
-    }
-}
-
-/// Macro to ease argument creation.
-///
-/// Example:
-/// ```
-/// use sarge::arg;
-///
-/// // equivalent to `Argument::new(Flag::Short('h'), ArgType::Flag);`
-/// arg!(flag, short, 'h');
-///
-/// // equivalent to `Argument::new(Flag::Long("num".into()), ArgType::Integer);`
-/// arg!(int, long, "num");
-///
-/// // equivalent to `Argument::new(Flag::Both('a', "bc".into()), ArgType::String);`
-/// arg!(str, both, 'a', "bc");
-/// ```
-#[macro_export]
-macro_rules! arg {
-    ( flag, short, $tag:expr ) => {
-        $crate::Argument::new($crate::Tag::Short($tag.into()), $crate::ArgType::Flag)
-    };
-    ( flag, long, $tag:expr ) => {
-        $crate::Argument::new($crate::Tag::Long($tag.into()), $crate::ArgType::Flag)
-    };
-    ( flag, both, $short:expr, $long:expr ) => {
-        $crate::Argument::new(
-            $crate::Tag::Both($short.into(), $long.into()),
-            $crate::ArgType::Flag,
-        )
-    };
-
-    ( int, short, $tag:expr ) => {
-        $crate::Argument::new($crate::Tag::Short($tag.into()), $crate::ArgType::Integer)
-    };
-    ( int, long, $tag:expr ) => {
-        $crate::Argument::new($crate::Tag::Long($tag.into()), $crate::ArgType::Integer)
-    };
-
-    ( int, both, $short:expr, $long:expr ) => {
-        $crate::Argument::new(
-            $crate::Tag::Both($short.into(), $long.into()),
-            $crate::ArgType::Integer,
-        )
-    };
-
-    ( str, short, $tag:expr ) => {
-        $crate::Argument::new($crate::Tag::Short($tag.into()), $crate::ArgType::String)
-    };
-    ( str, long, $tag:expr ) => {
-        $crate::Argument::new($crate::Tag::Long($tag.into()), $crate::ArgType::String)
-    };
-
-    ( str, both, $short:expr, $long:expr ) => {
-        $crate::Argument::new(
-            $crate::Tag::Both($short.into(), $long.into()),
-            $crate::ArgType::String,
-        )
-    };
-}
-
-/// Macro to ease getting arguments from a parser.
-///
-/// Example:
-/// ```
-/// use sarge::{get_arg, Tag, ArgType, Argument, ArgumentParser};
-///
-/// let mut parser = ArgumentParser::new();
-/// parser.add(Argument::new(Tag::Long("help".into()), ArgType::Flag));
-///
-/// // Equivalent to `parser.arg(Tag::Long("help".into())).expect("Failed to get argument");`
-/// get_arg!(parser, long, "help").expect("Failed to get argument");
-/// ```
-#[macro_export]
-macro_rules! get_arg {
-    ( $parser:ident, short, $tag:expr ) => {
-        $parser.arg($crate::Tag::Short($tag.into()))
-    };
-    ( $parser:ident, long, $tag:expr ) => {
-        $parser.arg($crate::Tag::Long($tag.into()))
-    };
-    ( $parser:ident, both, $short:expr, $long:expr ) => {
-        $parser.arg($crate::Tag::Both($short.into(), $long.into()))
-    };
-}
-
-/// Like `get_arg!`, but instead returns an option containing its ArgValue
-///
-/// Example:
-/// ```
-/// use sarge::{arg, get_val, ArgValue, ArgumentParser};
-///
-/// let mut parser = ArgumentParser::new();
-/// parser.add(arg!(flag, long, "help"));
-/// parser.parse_args(vec!["abc".into(), "--help".into()]);
-///
-/// assert_eq!(get_val!(parser, long, "help").expect("Failed to get argument value"), ArgValue::Flag(true));
-/// ```
-#[macro_export]
-macro_rules! get_val {
-    ( $parser:ident, short, $tag:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Short($tag.into())) {
-                return arg.val.clone();
-            }
-
-            None
-        })()
-    };
-    ( $parser:ident, long, $tag:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Long($tag.into())) {
-                return arg.val.clone();
-            }
-
-            None
-        })()
-    };
-    ( $parser:ident, both, $short:expr, $long:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Both($short.into(), $long.into())) {
-                return arg.val.clone();
-            }
-
-            None
-        })()
-    };
-}
-
-/// Gets an argument from the parser, returning the contained value.
-///
-/// Panics if the argument doesn't exist, or if the arguments type isn't ArgType::Flag.
-#[macro_export]
-macro_rules! get_flag {
-    ( $parser:ident, short, $tag:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Short($tag.into())) {
-                return arg
-                    .val
-                    .clone()
-                    .expect("Failed to get argument value: arg.val == None")
-                    .get_flag();
-            }
-
-            panic!("Couldn't find argument {}", $crate::Tag::Short($tag.into()));
-        })()
-    };
-    ( $parser:ident, long, $tag:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Long($tag.into())) {
-                return arg
-                    .val
-                    .clone()
-                    .expect("Failed to get argument value: arg.val == None")
-                    .get_flag();
-            }
-
-            panic!("Couldn't find argument {}", $crate::Tag::Long($tag.into()));
-        })()
-    };
-    ( $parser:ident, both, $short:expr, $long:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Both($short.into(), $long.into())) {
-                return arg
-                    .val
-                    .clone()
-                    .expect("Failed to get argument value: arg.val == None")
-                    .get_flag();
-            }
-
-            panic!(
-                "Couldn't find argument {}",
-                $crate::Tag::Both($short.into(), $long.into())
-            );
-        })()
-    };
-}
-
-/// Gets an argument from the parser, returning the contained value.
-///
-/// Panics if the argument doesn't exist, or if the arguments type isn't ArgType::Integer.
-#[macro_export]
-macro_rules! get_int {
-    ( $parser:ident, short, $tag:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Short($tag.into())) {
-                return arg
-                    .val
-                    .clone()
-                    .expect("Failed to get argument value: arg.val == None")
-                    .get_int();
-            }
-
-            panic!("Couldn't find argument {}", ::Tag::Short($tag.into()));
-        })()
-    };
-    ( $parser:ident, long, $tag:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Long($tag.into())) {
-                return arg
-                    .val
-                    .clone()
-                    .expect("Failed to get argument value: arg.val == None")
-                    .get_int();
-            }
-
-            panic!("Couldn't find argument {}", $crate::Tag::Long($tag.into()));
-        })()
-    };
-    ( $parser:ident, both, $short:expr, $long:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Both($short.into(), $long.into())) {
-                return arg
-                    .val
-                    .clone()
-                    .expect("Failed to get argument value: arg.val == None")
-                    .get_int();
-            }
-
-            panic!(
-                "Couldn't find argument {}",
-                $crate::Tag::Both($short.into(), $long.into())
-            );
-        })()
-    };
-}
-
-/// Gets an argument from the parser, returning the contained value.
-///
-/// Panics if the argument doesn't exist, or if the arguments type isn't ArgType::String.
-#[macro_export]
-macro_rules! get_str {
-    ( $parser:ident, short, $tag:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Short($tag.into())) {
-                return arg
-                    .val
-                    .clone()
-                    .expect("Failed to get argument value: arg.val == None")
-                    .get_str();
-            }
-
-            panic!("Couldn't find argument {}", $crate::Tag::Short($tag.into()));
-        })()
-    };
-    ( $parser:ident, long, $tag:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Long($tag.into())) {
-                return arg
-                    .val
-                    .clone()
-                    .expect("Failed to get argument value: arg.val == None")
-                    .get_str();
-            }
-
-            panic!("Couldn't find argument {}", $crate::Tag::Long($tag.into()));
-        })()
-    };
-    ( $parser:ident, both, $short:expr, $long:expr ) => {
-        (|| {
-            if let Some(arg) = $parser.arg($crate::Tag::Both($short.into(), $long.into())) {
-                return arg
-                    .val
-                    .clone()
-                    .expect("Failed to get argument value: arg.val == None")
-                    .get_str();
-            }
-
-            panic!(
-                "Couldn't find argument {}",
-                $crate::Tag::Both($short.into(), $long.into())
-            );
-        })()
-    };
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn basic_arg_test() {
-        let mut parser = ArgumentParser::new();
-        parser.add(Argument::new(Tag::Long("name".into()), ArgType::String));
-        parser.add(Argument::new(Tag::Short('h'), ArgType::Flag));
-
-        let args: Vec<String> = vec!["abc", "--name", "Jonah"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-        match parser.parse_args(args) {
-            Err(e) => {
-                panic!("Failed to parse first arguments: {}", e);
-            }
-            _ => {}
-        }
-
-        assert_eq!(parser.binary, Some("abc".into()));
-
-        assert_eq!(
-            parser
-                .arg(Tag::Long("name".into()))
-                .expect("Couldn't find tag --name")
-                .val,
-            Some(ArgValue::String("Jonah".into()))
-        );
-
-        assert_eq!(
-            parser
-                .arg(Tag::Short('h'))
-                .expect("Couldn't find tag -h")
-                .val,
-            Some(ArgValue::Flag(false))
-        );
-
-        let args: Vec<String> = vec!["abc", "-h", "Jonah"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-        let remainder = match parser.parse_args(args) {
-            Err(e) => {
-                panic!("Failed to parse second arguments: {}", e);
-            }
-            Ok(r) => r,
-        };
-
-        assert_eq!(
-            parser
-                .arg(Tag::Long("name".into()))
-                .expect("Couldn't find tag --name")
-                .val,
-            None
-        );
-
-        assert_eq!(
-            parser
-                .arg(Tag::Short('h'))
-                .expect("Couldn't find tag -h")
-                .val,
-            Some(ArgValue::Flag(true))
-        );
-
-        assert_eq!(remainder[0], "Jonah".to_string());
-    }
-
-    #[test]
-    fn macros() {
-        let mut parser = ArgumentParser::new();
-        parser.add(arg!(flag, short, 'a'));
-        parser.add(arg!(flag, long, "bc"));
-        parser.add(arg!(flag, both, 'd', "ef"));
-
-        parser.add(arg!(int, short, 'g'));
-        parser.add(arg!(int, long, "hi"));
-        parser.add(arg!(int, both, 'j', "kl"));
-
-        parser.add(arg!(str, short, 'm'));
-        parser.add(arg!(str, long, "no"));
-        parser.add(arg!(str, both, 'p', "qr"));
-
-        get_arg!(parser, short, 'a').expect("Failed to get -a");
-        get_arg!(parser, long, "bc").expect("Failed to get --bc");
-        get_arg!(parser, both, 'd', "ef").expect("Failed to get -d, --ef");
-
-        get_arg!(parser, short, 'g').expect("Failed to get -g");
-        get_arg!(parser, long, "hi").expect("Failed to get --hi");
-        get_arg!(parser, both, 'j', "kl").expect("Failed to get -j, --kl");
-
-        get_arg!(parser, short, 'm').expect("Failed to get -m");
-        get_arg!(parser, long, "no").expect("Failed to get --no");
-        get_arg!(parser, both, 'p', "qr").expect("Failed to get -p, --qr");
-
-        parser
-            .parse_args(
-                vec!["abc", "-a", "--hi", "10", "-p", "Jack"]
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect(),
-            )
-            .expect("Failed to parse args");
-
-        assert_eq!(get_flag!(parser, short, 'a'), true);
-        assert_eq!(get_int!(parser, long, "hi"), 10);
-        assert_eq!(get_str!(parser, both, 'p', "qr"), "Jack".to_string());
-    }
-
-    #[test]
-    fn multiple_short() {
-        let mut parser = ArgumentParser::new();
-        parser.add(arg!(flag, short, 'a'));
-        parser.add(arg!(flag, short, 'b'));
-        parser.add(arg!(flag, short, 'c'));
-        parser.add(arg!(flag, short, 'd'));
-
-        parser
-            .parse_args(vec!["test", "-abc"].iter().map(|s| s.to_string()).collect())
-            .expect("Failed to parse args");
-
-        assert_eq!(get_flag!(parser, short, 'a'), true);
-        assert_eq!(get_flag!(parser, short, 'b'), true);
-        assert_eq!(get_flag!(parser, short, 'c'), true);
-        assert_eq!(get_flag!(parser, short, 'd'), false);
-    }
-
-    #[test]
-    fn multiple_short_vals() {
-        let mut parser = ArgumentParser::new();
-        parser.add(arg!(flag, short, 'a'));
-        parser.add(arg!(flag, short, 'b'));
-        parser.add(arg!(str, short, 'c'));
-        parser.add(arg!(str, short, 'd'));
-
-        parser
-            .parse_args(
-                vec!["test", "-abc", "test"]
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect(),
-            )
-            .expect("Failed to parse args");
-
-        assert_eq!(get_flag!(parser, short, 'a'), true);
-        assert_eq!(get_flag!(parser, short, 'b'), true);
-        assert_eq!(get_str!(parser, short, 'c'), "test".to_string());
-        assert_eq!(get_val!(parser, short, 'd'), None);
-    }
-
-    #[test]
-    #[should_panic(expected = "ConsumedValue")]
-    fn multiple_short_vals_consume_same_value() {
-        let mut parser = ArgumentParser::new();
-        parser.add(arg!(flag, short, 'a'));
-        parser.add(arg!(flag, short, 'b'));
-        parser.add(arg!(str, short, 'c'));
-        parser.add(arg!(str, short, 'd'));
-
-        parser
-            .parse_args(
-                vec!["test", "-abcd", "test"]
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect(),
-            )
-            .unwrap();
     }
 }
