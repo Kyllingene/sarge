@@ -37,14 +37,12 @@ use sarge::prelude::*;
     assert_eq!(
         help.get(), // Consumes `help`; use `get_keep` to retain the reference.
         Ok(false)   // Since we compare it to a `bool`, Rust knows that `help`
-                    // must also be a `bool`.
-    );
+    );              // must also be a `bool`.
 
     assert_eq!(
         number.get(),
         Ok(123)     // However, since 123 could be either an `i64` *or* a `u64`,
-                    // we had to specify `::<i64>` on `parser.add`.
-    );
+    );              // we had to specify `::<i64>` on `parser.add`.
 
     assert_eq!(
         remainder,  // Remainder is all arguments not paired with a tag, in order.
@@ -63,7 +61,7 @@ use sarge::prelude::*;
 
 ## Custom Types
 
-Using the `ArgumentType` macro, you can implement your own types. Here's an
+Using the `ArgumentType` trait, you can implement your own types. Here's an
 example (taken from `src/test/custom_type.rs`):
 
 ```rust
