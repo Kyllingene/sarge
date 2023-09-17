@@ -2,7 +2,7 @@
 
 ## std-only command-line arguments parser
 
-Sarge is a simple, lightweight argument parser. It has two styles of argument: short (e.g. `-h`) and long (e.g. `--help`) (and both), and five different argument types: `i64`, `u64`, `f64`, `String`, `Vec<T> where T: ArgumentType`, and `bool`.
+Sarge is a simple, lightweight argument parser. It has two styles of argument: short (e.g. `-h`) and long (e.g. `--help`) (and both), and six different argument types: `i64`, `u64`, `f64`, `String`, `bool`, and `Vec<T> where T: ArgumentType`.
 
 Arguments are registered with an `ArgumentParser`, and when you're ready, `ArgumentParser::parse`. Parsing does two things: it sets the value of each argument, and returns a `Vec<String>` of the values not associated with an argument. Arguments can be created easily via the `tag` function and registered with `ArgumentParser::add`, returning an `ArgumentRef`.
 
