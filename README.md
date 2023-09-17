@@ -2,7 +2,7 @@
 
 ## std-only command-line arguments parser
 
-Sarge is a simple, lightweight argument parser. It has two styles of argument: short (e.g. `-h`) and long (e.g. `--help`) (and both), and five different argument types: `i64`, `u64`, `f64`, `String`, and `bool`.
+Sarge is a simple, lightweight argument parser. It has two styles of argument: short (e.g. `-h`) and long (e.g. `--help`) (and both), and five different argument types: `i64`, `u64`, `f64`, `String`, `Vec<T> where T: ArgumentType`, and `bool`.
 
 Arguments are registered with an `ArgumentParser`, and when you're ready, `ArgumentParser::parse`. Parsing does two things: it sets the value of each argument, and returns a `Vec<String>` of the values not associated with an argument. Arguments can be created easily via the `tag` function and registered with `ArgumentParser::add`, returning an `ArgumentRef`.
 
@@ -36,13 +36,13 @@ use sarge::prelude::*;
 
     assert_eq!(
         help.get(), // Consumes `help`; use `get_keep` to retain the reference.
-        Some(false) // Since we compare it to a `bool`, Rust knows that `help`
+        Ok(false)   // Since we compare it to a `bool`, Rust knows that `help`
                     // must also be a `bool`.
     );
 
     assert_eq!(
         number.get(),
-        Some(123)   // However, since 123 could be either an `i64` *or* a `u64`,
+        Ok(123)     // However, since 123 could be either an `i64` *or* a `u64`,
                     // we had to specify `::<i64>` on `parser.add`.
     );
 

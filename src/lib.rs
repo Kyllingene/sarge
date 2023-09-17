@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 pub mod prelude;
+pub mod custom;
 
 use std::{
     env,
@@ -22,6 +23,9 @@ use types::{ArgumentType, ArgumentValueType};
 #[cfg(test)]
 mod test;
 
+/// This is an implementation detail, but due to the [`ArgumentType`] needing
+/// to be public, this has to also be public.
+#[doc(hidden)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArgumentValue {
     Bool(bool),
@@ -61,16 +65,16 @@ pub struct ArgumentRef<'a, T: ArgumentType> {
 impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
     /// Retrieve the value of the argument.
     /// Consumes the `ArgumentRef`.
-    pub fn get(self) -> Option<T> {
+    pub fn get(self) -> Result<T, T::Error> {
         self.get_keep()
     }
 
     /// Retrieve the value of the argument.
     /// Does not consume the `ArgumentRef`.
-    pub fn get_keep(&self) -> Option<T> {
+    pub fn get_keep(&self) -> Result<T, T::Error> {
         // let arg = self.parser.args.lock().unwrap()[self.i].clone();
         let args = self.parser.args.lock().unwrap();
-        T::from_argval(args[self.i].clone().val?)
+        T::from_argval(args[self.i].clone().val.ok_or_else(T::Error::default)?)
     }
 }
 

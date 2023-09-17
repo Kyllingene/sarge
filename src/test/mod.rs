@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+mod custom_type;
+
 #[test]
 fn basic_arg_test() {
     let parser = ArgumentParser::new();
@@ -17,9 +19,9 @@ fn basic_arg_test() {
 
     assert_eq!(parser.binary(), Some("abc".into()));
 
-    assert_eq!(name.get_keep(), Some("Jonah".to_string()));
+    assert_eq!(name.get_keep(), Ok("Jonah".to_string()));
 
-    assert_eq!(help.get_keep(), Some(false));
+    assert_eq!(help.get_keep(), Ok(false));
 
     let args = ["abc".to_string(), "-h".to_string(), "Jonah".to_string()];
 
@@ -30,9 +32,9 @@ fn basic_arg_test() {
         Ok(r) => r,
     };
 
-    assert_eq!(name.get(), None);
+    assert_eq!(name.get(), Err(()));
 
-    assert_eq!(help.get(), Some(true));
+    assert_eq!(help.get(), Ok(true));
 
     assert_eq!(remainder[0], "Jonah".to_string());
 }
@@ -48,10 +50,10 @@ fn multiple_short() {
     let args = ["test".to_string(), "-abc".to_string()];
     parser.parse_args(&args).expect("Failed to parse args");
 
-    assert_eq!(a.get(), Some(true));
-    assert_eq!(b.get(), Some(true));
-    assert_eq!(c.get(), Some(true));
-    assert_eq!(d.get(), Some(false));
+    assert_eq!(a.get(), Ok(true));
+    assert_eq!(b.get(), Ok(true));
+    assert_eq!(c.get(), Ok(true));
+    assert_eq!(d.get(), Ok(false));
 }
 
 #[test]
@@ -72,10 +74,10 @@ fn multiple_short_vals() {
         )
         .expect("Failed to parse args");
 
-    assert_eq!(a.get(), Some(true));
-    assert_eq!(b.get(), Some(true));
-    assert_eq!(c.get(), Some("test".to_string()));
-    assert_eq!(d.get(), None);
+    assert_eq!(a.get(), Ok(true));
+    assert_eq!(b.get(), Ok(true));
+    assert_eq!(c.get(), Ok("test".to_string()));
+    assert_eq!(d.get(), Err(()));
 }
 
 #[test]
@@ -95,4 +97,29 @@ fn multiple_short_vals_consume_same_value() {
                 .collect::<Vec<_>>(),
         )
         .unwrap();
+}
+
+#[test]
+fn list_type() {
+    let parser = ArgumentParser::new();
+    let list = parser.add(tag::long("list"));
+
+    let args = [
+        "test".to_string(),
+        "--list".to_string(),
+        "Hello,World,!".to_string(),
+    ];
+
+    let _ = parser.parse_args(&args).expect("failed to parse arguments");
+
+    assert_eq!(
+        list.get(),
+        Ok(
+            vec![
+                "Hello".to_string(),
+                "World".to_string(),
+                "!".to_string(),
+            ]
+        )
+    );
 }
