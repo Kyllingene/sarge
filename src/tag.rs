@@ -1,21 +1,27 @@
+//! Everything surrounding [`Tag`]s.
+
 use std::{fmt::Display, hash::Hash};
 
+/// Create a tag with just a short variant.
 #[inline]
 pub fn short<S: Into<char>>(s: S) -> Tag {
     Tag::Short(s.into())
 }
 
+/// Create a tag with just a long variant.
 #[inline]
 pub fn long<L: ToString>(l: L) -> Tag {
     Tag::Long(l.to_string())
 }
 
+/// Create a tag with both short and long variants.
 #[inline]
 pub fn both<S: Into<char>, L: ToString>(s: S, l: L) -> Tag {
     Tag::Both(s.into(), l.to_string())
 }
 
-/// An argument tag, or name.
+/// An argument tag, or name. Easiest to create via
+/// [`short`], [`long`], and [`both`].
 ///
 /// `Short` means one dash and one character, e.g. `-h`.
 /// `Long` means two dashes and any number of characters,

@@ -23,7 +23,7 @@ use sarge::prelude::*;
     // These are the fake arguments for our program. Note that any
     // of these could include spaces, but shells generally break
     // arguments on non-quoted whitespace.
-    let supplied_args = vec![
+    let arguments = vec![
         "my_program".to_string(),
         "abc".to_string(),
         "--number".to_string(),
@@ -32,7 +32,7 @@ use sarge::prelude::*;
     ];
 
     // In your application, you would probably use `ArgumentParser::parse()`.
-    let remainder = parser.parse_args(&supplied_args).expect("Failed to parse arguments");
+    let remainder = parser.parse_args(&arguments).expect("Failed to parse arguments");
 
     assert_eq!(
         help.get(), // Consumes `help`; use `get_keep` to retain the reference.
@@ -47,7 +47,7 @@ use sarge::prelude::*;
     );
 
     assert_eq!(
-        remainder,
+        remainder,  // Remainder is all arguments not paired with a tag, in order.
         vec![
             "abc".to_string(),
             "def".to_string(),
@@ -59,4 +59,63 @@ use sarge::prelude::*;
         Some("my_program".to_string())
     );
 # }
+```
+
+## Custom Types
+
+Using the `ArgumentType` macro, you can implement your own types. Here's an
+example (taken from `src/test/custom_type.rs`):
+
+```rust
+use sarge::{prelude::*, custom::*};
+
+#[derive(Debug, PartialEq, Eq)]
+struct MyCustomType(Vec<String>);
+
+impl ArgumentType for MyCustomType {
+    /// This gets returned from `ArgumentRef::get` in the event
+    /// of a failed parse. This must be `Debug`.
+    type Error = ();
+
+    /// What type of input. For custom types, you want
+    /// an `ArgumentValue::String`.
+    fn arg_type() -> ArgumentValueType {
+        ArgumentValueType::String
+    }
+
+    /// Do your parsing here. This just splits on spaces.
+    fn from_value(val: ArgumentValue) -> Result<Self, Self::Error> {
+        if let ArgumentValue::String(val) = val {
+            Ok(Self(val.split(' ').map(|s| s.to_string()).collect()))
+        } else {
+            Err(())
+        }
+    }
+}
+
+fn main() {
+    let parser = ArgumentParser::new();
+    let my_argument = parser.add::<MyCustomType>(tag::long("myarg"));
+
+    let arguments = [
+        "custom_type_test".to_string(),
+        "--myarg".to_string(),
+        "Hello World !".to_string(),
+    ];
+
+    let _ = parser.parse_args(&arguments).expect("failed to parse arguments");
+
+    assert_eq!(
+        my_argument.get(),
+        Ok(
+            MyCustomType(
+                vec![
+                    "Hello".to_string(),
+                    "World".to_string(),
+                    "!".to_string(),
+                ]
+            )
+        )
+    );
+}
 ```

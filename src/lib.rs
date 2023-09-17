@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
-pub mod prelude;
 pub mod custom;
+pub mod prelude;
 
 use std::{
     env,
@@ -23,9 +23,11 @@ use types::{ArgumentType, ArgumentValueType};
 #[cfg(test)]
 mod test;
 
-/// This is an implementation detail, but due to the [`ArgumentType`] needing
-/// to be public, this has to also be public.
-#[doc(hidden)]
+/// A value passed to an argument. This will always
+/// match the value returned from [`ArgumentType::arg_type`].
+///
+/// In creating implementing your own types, you
+/// almost always want [`ArgumentValue::String`].
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArgumentValue {
     Bool(bool),
@@ -74,10 +76,13 @@ impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
     pub fn get_keep(&self) -> Result<T, T::Error> {
         // let arg = self.parser.args.lock().unwrap()[self.i].clone();
         let args = self.parser.args.lock().unwrap();
-        T::from_argval(args[self.i].clone().val.ok_or_else(T::Error::default)?)
+        T::from_value(args[self.i].clone().val.ok_or_else(T::Error::default)?)
     }
 }
 
+/// The structure that actually parses all your
+/// arguments. Use [`ArgumentParser::add`] to
+/// register arguments and get [`ArgumentRef`]s.
 #[derive(Debug, Clone, Default)]
 pub struct ArgumentParser {
     args: Arc<Mutex<Vec<InternalArgument>>>,
@@ -92,7 +97,7 @@ impl ArgumentParser {
 
     /// Adds an argument to the parser.
     pub fn add<T: ArgumentType>(&self, tag: Tag) -> ArgumentRef<T> {
-        let typ = T::to_argtyp();
+        let typ = T::arg_type();
         let arg = InternalArgument {
             tag,
             typ,

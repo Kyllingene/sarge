@@ -1,10 +1,12 @@
 use std::{error::Error, fmt::Display};
 
+/// A parsing error.
 #[derive(Debug, Clone)]
 pub enum ArgParseError {
     InvalidInteger(String),
     InvalidUnsignedInteger(String),
     InvalidFloat(String),
+    InvalidList(String),
     UnknownFlag(String),
     UnexpectedArgument(String),
     MissingValue(String),
@@ -17,6 +19,7 @@ impl Display for ArgParseError {
             Self::InvalidInteger(s) => write!(f, "Invalid integer: `{s}`"),
             Self::InvalidUnsignedInteger(s) => write!(f, "Invalid unsigned integer: `{s}`"),
             Self::InvalidFloat(s) => write!(f, "Invalid float: `{s}`"),
+            Self::InvalidList(s) => write!(f, "Invalid list: `{s}`"),
             Self::UnknownFlag(s) => write!(f, "Unknown flag: `{s}`"),
             Self::UnexpectedArgument(s) => write!(f, "Unexpected argument: `{s}`"),
             Self::MissingValue(s) => write!(f, "Expected value for `{s}`"),

@@ -10,11 +10,8 @@ fn basic_arg_test() {
 
     let args = ["abc".to_string(), "--name".to_string(), "Jonah".to_string()];
 
-    match parser.parse_args(&args) {
-        Err(e) => {
-            panic!("Failed to parse first arguments: {}", e);
-        }
-        _ => {}
+    if let Err(e) = parser.parse_args(&args) {
+        panic!("Failed to parse first arguments: {}", e);
     }
 
     assert_eq!(parser.binary(), Some("abc".into()));
@@ -67,7 +64,7 @@ fn multiple_short_vals() {
     // This test and the next ensure no regressions in &Vec
     parser
         .parse_args(
-            &vec!["test", "-abc", "test"]
+            &["test", "-abc", "test"]
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<_>>(),
@@ -91,7 +88,7 @@ fn multiple_short_vals_consume_same_value() {
 
     parser
         .parse_args(
-            &vec!["test", "-abcd", "test"]
+            &["test", "-abcd", "test"]
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<_>>(),
@@ -114,12 +111,10 @@ fn list_type() {
 
     assert_eq!(
         list.get(),
-        Ok(
-            vec![
-                "Hello".to_string(),
-                "World".to_string(),
-                "!".to_string(),
-            ]
-        )
+        Ok(vec![
+            "Hello".to_string(),
+            "World".to_string(),
+            "!".to_string(),
+        ])
     );
 }
