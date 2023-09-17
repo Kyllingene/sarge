@@ -1,6 +1,8 @@
 # sarge
 
-## std-only command-line arguments parser
+![build status](https://github.com/kyllingene/sarge/actions/workflows/rust.yml/badge.svg)
+![license](https://img.shields.io/crates/l/sarge)
+![version](https://img.shields.io/crates/v/sarge)
 
 Sarge is a simple, lightweight argument parser. It has two styles of argument: short (e.g. `-h`) and long (e.g. `--help`) (and both), and six different argument types: `i64`, `u64`, `f64`, `String`, `bool`, and `Vec<T> where T: ArgumentType`.
 
