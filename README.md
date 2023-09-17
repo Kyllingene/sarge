@@ -8,7 +8,7 @@ Sarge is a simple, lightweight argument parser. It has two styles of argument: s
 
 Arguments are registered with an `ArgumentParser`, and when you're ready, `ArgumentParser::parse`. Parsing does two things: it sets the value of each argument, and returns a `Vec<String>` of the values not associated with an argument. Arguments can be created easily via the `tag` function and registered with `ArgumentParser::add`, returning an `ArgumentRef`.
 
-Arguments can be retrieved with `ArgumentRef::get(self)`.
+Arguments can be retrieved with `ArgumentRef::get(self)`. Boolean arguments will always be `Ok(true | false)`; other arguments may be `Err(_)` if they failed to parse, or were not provided.
 
 Example:
 ```rust
