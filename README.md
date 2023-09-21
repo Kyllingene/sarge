@@ -14,7 +14,7 @@ Example:
 ```rust
 use sarge::prelude::*;
 
-# fn main() {
+fn main() {
     let parser = ArgumentParser::new();
 
     // These are borrows on your parser. Don't worry, `ArgumentParser`
@@ -58,7 +58,7 @@ use sarge::prelude::*;
         parser.binary(), // The first argument, if any.
         Some("my_program".to_string())
     );
-# }
+}
 ```
 
 ## Custom Types
