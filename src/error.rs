@@ -1,7 +1,7 @@
 use std::{error::Error, fmt::Display};
 
 /// A parsing error.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArgParseError {
     InvalidInteger(String),
     InvalidUnsignedInteger(String),

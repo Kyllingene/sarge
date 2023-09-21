@@ -2,6 +2,9 @@ use crate::prelude::*;
 
 mod custom_type;
 
+#[cfg(feature = "macros")]
+mod macros;
+
 #[test]
 fn basic_arg_test() {
     let parser = ArgumentParser::new();
