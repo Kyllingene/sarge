@@ -26,18 +26,32 @@ pub enum ArgumentValueType {
 /// You can implement this for your own types!
 /// You would achieve this by returning
 /// [`ArgumentValueType::String`] from `arg_type`,
-/// and parsing a [`ArgumentValue::String`] into your
+/// and parsing an [`ArgumentValue::String`] into your
 /// type in `from_value`.
 ///
 /// An example can be found in `src/test/custom_type.rs`.
 pub trait ArgumentType: Sized {
+    /// What errors may occur during parsing.
     type Error: Default;
 
+    /// The type of argument you would like to be given.
+    /// Anything other than `String` will perform some
+    /// parsing behind-the-scenes.
     fn arg_type() -> ArgumentValueType;
+
+    /// Parse yourself from the argument type you chose in
+    /// [`arg_type`](`ArgumentType::arg_type`).
     fn from_value(val: ArgumentValue) -> Result<Self, Self::Error>;
+
+    /// If no value was given, what the default should be, if any.
+    /// This defaults to `None`.
+    fn default_value() -> Option<Self> {
+        None
+    }
 }
 
 impl ArgumentType for bool {
+    // TODO: should this be `Infallible`?
     type Error = ();
 
     fn arg_type() -> ArgumentValueType {
@@ -48,8 +62,12 @@ impl ArgumentType for bool {
         if let ArgumentValue::Bool(b) = val {
             Ok(b)
         } else {
-            Err(())
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
+    }
+
+    fn default_value() -> Option<Self> {
+        Some(false)
     }
 }
 
@@ -64,7 +82,7 @@ impl ArgumentType for String {
         if let ArgumentValue::String(s) = val {
             Ok(s)
         } else {
-            Err(())
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
     }
 }
@@ -80,7 +98,7 @@ impl ArgumentType for i64 {
         if let ArgumentValue::I64(i) = val {
             Ok(i)
         } else {
-            Err(())
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
     }
 }
@@ -96,7 +114,7 @@ impl ArgumentType for u64 {
         if let ArgumentValue::U64(u) = val {
             Ok(u)
         } else {
-            Err(())
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
     }
 }
@@ -112,7 +130,7 @@ impl ArgumentType for f64 {
         if let ArgumentValue::Float(f) = val {
             Ok(f)
         } else {
-            Err(())
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
     }
 }
@@ -175,7 +193,7 @@ where
 
             Ok(values)
         } else {
-            Err(InvalidListError::Other)
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
     }
 }

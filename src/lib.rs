@@ -12,7 +12,7 @@ use std::{
 };
 
 pub mod tag;
-use tag::Tag;
+use tag::FullTag;
 
 mod error;
 pub use error::ArgParseError;
@@ -26,7 +26,7 @@ mod test;
 /// A value passed to an argument. This will always
 /// match the value returned from [`ArgumentType::arg_type`].
 ///
-/// In creating implementing your own types, you
+/// When implementing your own types, you
 /// almost always want [`ArgumentValue::String`].
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArgumentValue {
@@ -49,9 +49,9 @@ impl ArgumentValue {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 struct InternalArgument {
-    tag: Tag,
+    tag: FullTag,
     typ: ArgumentValueType,
     val: Option<ArgumentValue>,
 }
@@ -74,9 +74,20 @@ impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
     /// Retrieve the value of the argument.
     /// Does not consume the `ArgumentRef`.
     pub fn get_keep(&self) -> Result<T, T::Error> {
-        // let arg = self.parser.args.lock().unwrap()[self.i].clone();
         let args = self.parser.args.lock().unwrap();
-        T::from_value(args[self.i].clone().val.ok_or_else(T::Error::default)?)
+
+        let val = match args[self.i].clone().val {
+            Some(v) => v,
+            None => {
+                return if let Some(default) = T::default_value() {
+                    Ok(default)
+                } else {
+                    Err(T::Error::default())
+                };
+            }
+        };
+
+        T::from_value(val)
     }
 }
 
@@ -96,7 +107,7 @@ impl ArgumentParser {
     }
 
     /// Adds an argument to the parser.
-    pub fn add<T: ArgumentType>(&self, tag: Tag) -> ArgumentRef<T> {
+    pub fn add<T: ArgumentType>(&self, tag: FullTag) -> ArgumentRef<T> {
         let typ = T::arg_type();
         let arg = InternalArgument {
             tag,
@@ -120,28 +131,81 @@ impl ArgumentParser {
         self.binary.lock().unwrap().clone()
     }
 
-    /// Parse arguments from std::env::args.
+    /// Parse arguments from std::env::{args,vars}.
     pub fn parse(&self) -> Result<Vec<String>, ArgParseError> {
-        self.parse_args(env::args().collect::<Vec<_>>().as_slice())
+        self.parse_provided(env::args().collect::<Vec<_>>().as_slice(), env::vars())
     }
 
-    /// Parses the provided arguments.
-    pub fn parse_args(&self, args: &[String]) -> Result<Vec<String>, ArgParseError> {
+    /// Parse from the provided environment variables and CLI arguments.
+    pub fn parse_provided<I: Iterator<Item = (String, String)>>(
+        &self,
+        cli: &[String],
+        env: I,
+    ) -> Result<Vec<String>, ArgParseError> {
+        self.parse_env(env, true)?;
+        self.parse_cli(cli, false)
+    }
+
+    /// Parse the provided arguments as if they were environment variables.
+    ///
+    /// If `reset == true`, clears the values of all arguments beforehand.
+    /// You probably want to leave this at `false`, unless you're re-using
+    /// your parser.
+    pub fn parse_env<I: Iterator<Item = (String, String)>>(
+        &self,
+        args: I,
+        reset: bool,
+    ) -> Result<(), ArgParseError> {
+        let mut env_args = self.args.lock().unwrap();
+
+        if reset {
+            for arg in env_args.iter_mut() {
+                arg.val = None;
+            }
+        }
+
+        let mut env_args: Vec<_> = env_args
+            .iter_mut()
+            .filter(|arg| arg.tag.has_env())
+            .collect();
+
+        if env_args.is_empty() {
+            return Ok(());
+        }
+
+        for (key, val) in args {
+            let key_ref = &key;
+            if let Some(arg) = env_args
+                .iter_mut()
+                .find(|arg| arg.tag.env.as_ref().is_some_and(|env| env == key_ref))
+            {
+                Self::parse_arg(arg, Some(val), key)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Parses the provided arguments as if they were from the CLI.
+    ///
+    /// If `reset == true`, clears the values of all arguments beforehand.
+    /// You probably want to leave this at `false`, unless you're re-using
+    /// your parser.
+    pub fn parse_cli(&self, args: &[String], reset: bool) -> Result<Vec<String>, ArgParseError> {
         let mut args = args.iter();
         *self.binary.lock().unwrap() = args.next().cloned();
 
         let mut remainder = Vec::new();
 
-        self.args.lock().unwrap().iter_mut().for_each(|arg| {
-            arg.val = match arg.typ {
-                ArgumentValueType::Bool => Some(ArgumentValue::Bool(false)),
-                _ => None,
-            };
-        });
+        if reset {
+            for arg in self.args.lock().unwrap().iter_mut() {
+                arg.val = None;
+            }
+        }
 
         while let Some(arg) = args.next() {
             if let Some(mut long) = arg.strip_prefix("--") {
-                let val = if let Some((left, right)) = arg.split_once('=') {
+                let val = if let Some((left, right)) = long.split_once('=') {
                     long = left;
                     Some(right.to_string())
                 } else {
@@ -154,97 +218,14 @@ impl ArgumentParser {
                     .find(|arg| arg.tag.matches_long(long))
                     .ok_or(ArgParseError::UnknownFlag(long.to_string()))?;
 
-                match arg.typ {
-                    ArgumentValueType::Bool => arg.val = Some(ArgumentValue::Bool(true)),
-                    ArgumentValueType::I64 => {
-                        arg.val = Some(ArgumentValue::I64(
-                            val.ok_or(ArgParseError::MissingValue(long.to_string()))?
-                                .parse()
-                                .map_err(|e: ParseIntError| {
-                                    ArgParseError::InvalidInteger(e.to_string())
-                                })?,
-                        ))
-                    }
-                    ArgumentValueType::U64 => {
-                        arg.val = Some(ArgumentValue::U64(
-                            val.ok_or(ArgParseError::MissingValue(long.to_string()))?
-                                .parse()
-                                .map_err(|e: ParseIntError| {
-                                    ArgParseError::InvalidUnsignedInteger(e.to_string())
-                                })?,
-                        ))
-                    }
-                    ArgumentValueType::Float => {
-                        arg.val = Some(ArgumentValue::Float(
-                            val.ok_or(ArgParseError::MissingValue(long.to_string()))?
-                                .parse()
-                                .map_err(|e: ParseFloatError| {
-                                    ArgParseError::InvalidFloat(e.to_string())
-                                })?,
-                        ))
-                    }
-                    ArgumentValueType::String => {
-                        arg.val = Some(ArgumentValue::String(
-                            val.ok_or(ArgParseError::MissingValue(long.to_string()))?
-                                .clone(),
-                        ))
-                    }
-                }
+                Self::parse_arg(arg, val, long.to_string())?;
             } else if let Some(short) = arg.strip_prefix('-') {
                 if short.is_empty() {
                     remainder.push(String::from("-"));
-                } else if short.len() == 1 {
-                    let short = short.chars().next().unwrap();
-                    let mut pre_args = self.args.lock().unwrap();
-                    let arg = pre_args
-                        .iter_mut()
-                        .find(|arg| arg.tag.matches_short(short))
-                        .ok_or(ArgParseError::UnknownFlag(short.to_string()))?;
-
-                    match arg.typ {
-                        ArgumentValueType::Bool => arg.val = Some(ArgumentValue::Bool(true)),
-                        ArgumentValueType::I64 => {
-                            arg.val = Some(ArgumentValue::I64(
-                                args.next()
-                                    .ok_or(ArgParseError::MissingValue(short.to_string()))?
-                                    .parse()
-                                    .map_err(|e: ParseIntError| {
-                                        ArgParseError::InvalidInteger(e.to_string())
-                                    })?,
-                            ))
-                        }
-                        ArgumentValueType::U64 => {
-                            arg.val = Some(ArgumentValue::U64(
-                                args.next()
-                                    .ok_or(ArgParseError::MissingValue(short.to_string()))?
-                                    .parse()
-                                    .map_err(|e: ParseIntError| {
-                                        ArgParseError::InvalidUnsignedInteger(e.to_string())
-                                    })?,
-                            ))
-                        }
-                        ArgumentValueType::Float => {
-                            arg.val = Some(ArgumentValue::Float(
-                                args.next()
-                                    .ok_or(ArgParseError::MissingValue(short.to_string()))?
-                                    .parse()
-                                    .map_err(|e: ParseFloatError| {
-                                        ArgParseError::InvalidFloat(e.to_string())
-                                    })?,
-                            ))
-                        }
-                        ArgumentValueType::String => {
-                            arg.val = Some(ArgumentValue::String(
-                                args.next()
-                                    .ok_or(ArgParseError::MissingValue(short.to_string()))?
-                                    .clone(),
-                            ))
-                        }
-                    }
                 } else {
                     let mut consumed = false;
+                    let mut pre_args = self.args.lock().unwrap();
                     for short in short.chars() {
-                        let mut pre_args = self.args.lock().unwrap();
                         let arg = pre_args
                             .iter_mut()
                             .find(|arg| arg.tag.matches_short(short))
@@ -318,5 +299,57 @@ impl ArgumentParser {
         }
 
         Ok(remainder)
+    }
+
+    fn parse_arg<S: AsRef<str>>(
+        arg: &mut InternalArgument,
+        val: Option<S>,
+        name: String,
+    ) -> Result<(), ArgParseError> {
+        match arg.typ {
+            ArgumentValueType::Bool => {
+                if let Some(val) = val {
+                    let val = val.as_ref().trim();
+                    if val != "0" && val != "false" {
+                        arg.val = Some(ArgumentValue::Bool(true));
+                    }
+                }
+            }
+            ArgumentValueType::I64 => {
+                arg.val = Some(ArgumentValue::I64(
+                    val.ok_or(ArgParseError::MissingValue(name))?
+                        .as_ref()
+                        .parse()
+                        .map_err(|e: ParseIntError| ArgParseError::InvalidInteger(e.to_string()))?,
+                ))
+            }
+            ArgumentValueType::U64 => {
+                arg.val = Some(ArgumentValue::U64(
+                    val.ok_or(ArgParseError::MissingValue(name))?
+                        .as_ref()
+                        .parse()
+                        .map_err(|e: ParseIntError| {
+                            ArgParseError::InvalidUnsignedInteger(e.to_string())
+                        })?,
+                ))
+            }
+            ArgumentValueType::Float => {
+                arg.val = Some(ArgumentValue::Float(
+                    val.ok_or(ArgParseError::MissingValue(name))?
+                        .as_ref()
+                        .parse()
+                        .map_err(|e: ParseFloatError| ArgParseError::InvalidFloat(e.to_string()))?,
+                ))
+            }
+            ArgumentValueType::String => {
+                arg.val = Some(ArgumentValue::String(
+                    val.ok_or(ArgParseError::MissingValue(name))?
+                        .as_ref()
+                        .to_string(),
+                ))
+            }
+        }
+
+        Ok(())
     }
 }

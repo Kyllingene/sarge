@@ -1,10 +1,10 @@
 [package]
 name = "sarge"
-version = "4.0.2"
+version = "5.0.0"
 edition = "2021"
 
 authors = ["Kyllingene"]
-description = "Zero-dependencies command-line arguments parser."
+description = "Zero-dependencies arguments parser."
 repository = "https://github.com/kyllingene/sarge"
 
 license = "MIT"
