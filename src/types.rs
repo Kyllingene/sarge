@@ -41,6 +41,7 @@ pub trait ArgumentType: Sized {
 
     /// Parse yourself from the argument type you chose in
     /// [`arg_type`](`ArgumentType::arg_type`).
+    #[allow(clippy::missing_errors_doc)]
     fn from_value(val: ArgumentValue) -> Result<Self, Self::Error>;
 
     /// If no value was given, what the default should be, if any.

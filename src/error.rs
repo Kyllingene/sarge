@@ -1,7 +1,10 @@
 use std::{error::Error, fmt::Display};
 
-/// A parsing error.
+/// An error that occurred while parsing arguments,
+/// either CLI, environment variables, or provided.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
+#[allow(clippy::module_name_repetitions)]
 pub enum ArgParseError {
     InvalidInteger(String),
     InvalidUnsignedInteger(String),

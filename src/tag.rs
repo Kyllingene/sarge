@@ -1,29 +1,32 @@
-//! Everything surrounding [tags](`FullTag`).
+//! Everything surrounding [tags](`Full`).
 
 use std::{fmt::Display, hash::Hash};
 
 /// Create a tag with just a short variant.
 #[inline]
-pub fn short<S: Into<char>>(s: S) -> FullTag {
-    FullTag::from(Tag::Short(s.into()))
+pub fn short<S: Into<char>>(s: S) -> Full {
+    Full::from(Cli::Short(s.into()))
 }
 
 /// Create a tag with just a long variant.
 #[inline]
-pub fn long<L: ToString>(l: L) -> FullTag {
-    FullTag::from(Tag::Long(l.to_string()))
+#[allow(clippy::needless_pass_by_value)]
+pub fn long<L: ToString>(l: L) -> Full {
+    Full::from(Cli::Long(l.to_string()))
 }
 
 /// Create a tag with both short and long variants.
 #[inline]
-pub fn both<S: Into<char>, L: ToString>(s: S, l: L) -> FullTag {
-    FullTag::from(Tag::Both(s.into(), l.to_string()))
+#[allow(clippy::needless_pass_by_value)]
+pub fn both<S: Into<char>, L: ToString>(s: S, l: L) -> Full {
+    Full::from(Cli::Both(s.into(), l.to_string()))
 }
 
 /// Create an environment variable tag.
 #[inline]
-pub fn env<E: ToString>(e: E) -> FullTag {
-    FullTag {
+#[allow(clippy::needless_pass_by_value)]
+pub fn env<E: ToString>(e: E) -> Full {
+    Full {
         cli: None,
         env: Some(e.to_string()),
     }
@@ -32,19 +35,22 @@ pub fn env<E: ToString>(e: E) -> FullTag {
 /// An argument name that may have either a CLI component,
 /// environment variable component, or both.
 #[derive(Debug, Clone)]
-pub struct FullTag {
-    pub(crate) cli: Option<Tag>,
+pub struct Full {
+    pub(crate) cli: Option<Cli>,
     pub(crate) env: Option<String>,
 }
 
-impl FullTag {
+impl Full {
     /// Add a CLI component.
-    pub fn cli(mut self, tag: Tag) -> Self {
+    #[must_use]
+    pub fn cli(mut self, tag: Cli) -> Self {
         self.cli = Some(tag);
         self
     }
 
     /// Add an environment variable component.
+    #[must_use]
+    #[allow(clippy::needless_pass_by_value)]
     pub fn env<S: ToString>(mut self, name: S) -> Self {
         self.env = Some(name.to_string());
         self
@@ -78,8 +84,8 @@ impl FullTag {
     }
 }
 
-impl From<Tag> for FullTag {
-    fn from(tag: Tag) -> Self {
+impl From<Cli> for Full {
+    fn from(tag: Cli) -> Self {
         Self {
             cli: Some(tag),
             env: None,
@@ -87,7 +93,7 @@ impl From<Tag> for FullTag {
     }
 }
 
-impl Hash for FullTag {
+impl Hash for Full {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         if let Some(tag) = &self.cli {
             core::mem::discriminant(tag).hash(state);
@@ -99,7 +105,7 @@ impl Hash for FullTag {
     }
 }
 
-/// An argument tag, or name. Easiest to create via
+/// A CLI argument tag, or name. Easiest to create via
 /// [`short`], [`long`], and [`both`].
 ///
 /// `Short` means one dash and one character, e.g. `-h`.
@@ -107,21 +113,23 @@ impl Hash for FullTag {
 /// e.g. `--help`. `Both` means all of the above, e.g.
 /// `-h` OR `--help`.
 #[derive(Debug, Clone)]
-pub enum Tag {
+pub enum Cli {
     Short(char),
     Long(String),
     Both(char, String),
 }
 
-impl Tag {
-    /// Create a [`FullTag`] from a [`Tag`].
-    pub fn env(self, arg: String) -> FullTag {
-        FullTag {
+impl Cli {
+    /// Create a [`Full`] from a [`Cli`].
+    pub fn env(self, arg: String) -> Full {
+        Full {
             cli: Some(self),
             env: Some(arg),
         }
     }
 
+    // The only panic is `unwrap`, which is checked here.
+    #[allow(clippy::missing_panics_doc)]
     pub fn matches(&self, tag: &str) -> bool {
         if let Some(tag) = tag.strip_prefix("--") {
             self.matches_long(tag)
@@ -138,31 +146,29 @@ impl Tag {
 
     pub fn matches_long(&self, long: &str) -> bool {
         match self {
-            Tag::Short(_) => false,
-            Tag::Long(l) | Tag::Both(_, l) => l == long,
+            Cli::Short(_) => false,
+            Cli::Long(l) | Cli::Both(_, l) => l == long,
         }
     }
 
     pub fn matches_short(&self, short: char) -> bool {
         match self {
-            Tag::Long(_) => false,
-            Tag::Short(s) | Tag::Both(s, _) => *s == short,
+            Cli::Long(_) => false,
+            Cli::Short(s) | Cli::Both(s, _) => *s == short,
         }
     }
 }
 
-impl PartialEq for Tag {
+impl PartialEq for Cli {
     fn eq(&self, other: &Self) -> bool {
         match self {
             Self::Short(s) => match other {
-                Self::Short(o) => s == o,
-                Self::Both(o, _) => s == o,
-                _ => false,
+                Self::Short(o) | Self::Both(o, _) => s == o,
+                Self::Long(_) => false,
             },
             Self::Long(s) => match other {
-                Self::Long(o) => s == o,
-                Self::Both(_, o) => s == o,
-                _ => false,
+                Self::Long(o) | Self::Both(_, o) => s == o,
+                Self::Short(_) => false,
             },
             Self::Both(s1, s2) => match other {
                 Self::Short(o) => s1 == o,
@@ -173,13 +179,13 @@ impl PartialEq for Tag {
     }
 }
 
-impl Hash for Tag {
+impl Hash for Cli {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         core::mem::discriminant(self).hash(state);
     }
 }
 
-impl Display for Tag {
+impl Display for Cli {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Short(ch) => write!(f, "-{ch}"),

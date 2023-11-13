@@ -1,18 +1,20 @@
 #![doc = include_str!("../README.md")]
+#![warn(clippy::pedantic)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::redundant_closure_for_method_calls)]
 
 pub mod custom;
 pub mod prelude;
 
-use std::{
-    env,
-    fmt::Debug,
-    marker::PhantomData,
-    num::{ParseFloatError, ParseIntError},
-    sync::{Arc, Mutex},
-};
+use std::env;
+use std::fmt::Debug;
+use std::marker::PhantomData;
+use std::num::{ParseFloatError, ParseIntError};
+use std::sync::{Arc, Mutex};
 
 pub mod tag;
-use tag::FullTag;
+use tag::Full;
 
 mod error;
 pub use error::ArgParseError;
@@ -51,7 +53,7 @@ impl ArgumentValue {
 
 #[derive(Clone, Debug)]
 struct InternalArgument {
-    tag: FullTag,
+    tag: Full,
     typ: ArgumentValueType,
     val: Option<ArgumentValue>,
 }
@@ -67,24 +69,33 @@ pub struct ArgumentRef<'a, T: ArgumentType> {
 impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
     /// Retrieve the value of the argument.
     /// Consumes the `ArgumentRef`.
+    ///
+    /// # Errors
+    ///
+    /// If the argument type fails to parse,
+    /// this will return that argument types error.
+    ///
+    /// For `String` and `bool`, this can never fail.
     pub fn get(self) -> Result<T, T::Error> {
         self.get_keep()
     }
 
     /// Retrieve the value of the argument.
     /// Does not consume the `ArgumentRef`.
+    ///
+    /// # Errors
+    ///
+    /// See [`get`] for possible errors.
+    #[allow(clippy::missing_panics_doc)]
     pub fn get_keep(&self) -> Result<T, T::Error> {
         let args = self.parser.args.lock().unwrap();
 
-        let val = match args[self.i].clone().val {
-            Some(v) => v,
-            None => {
-                return if let Some(default) = T::default_value() {
-                    Ok(default)
-                } else {
-                    Err(T::Error::default())
-                };
-            }
+        let Some(val) = args[self.i].clone().val else {
+            return if let Some(default) = T::default_value() {
+                Ok(default)
+            } else {
+                Err(T::Error::default())
+            };
         };
 
         T::from_value(val)
@@ -94,6 +105,14 @@ impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
 /// The structure that actually parses all your
 /// arguments. Use [`ArgumentParser::add`] to
 /// register arguments and get [`ArgumentRef`]s.
+///
+/// Internally, the parser is a shambling heap of
+/// `Arc<Mutex<HeapAllocatedValue>>`. This is to
+/// enable the current API in a thread-safe manner.
+/// In the future, there may be a single-threaded
+/// feature that disables the extra synchronization
+/// primitives, at the risk of possible memory
+/// unsafety.
 #[derive(Debug, Clone, Default)]
 pub struct ArgumentParser {
     args: Arc<Mutex<Vec<InternalArgument>>>,
@@ -101,13 +120,14 @@ pub struct ArgumentParser {
 }
 
 impl ArgumentParser {
-    /// Returns an empty ArgumentParser.
+    /// Returns an empty [`ArgumentParser`].
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Adds an argument to the parser.
-    pub fn add<T: ArgumentType>(&self, tag: FullTag) -> ArgumentRef<T> {
+    #[allow(clippy::missing_panics_doc)]
+    pub fn add<T: ArgumentType>(&self, tag: Full) -> ArgumentRef<T> {
         let typ = T::arg_type();
         let arg = InternalArgument {
             tag,
@@ -127,16 +147,27 @@ impl ArgumentParser {
     }
 
     /// Retrieves the binary, if any.
+    #[allow(clippy::missing_panics_doc)]
     pub fn binary(&self) -> Option<String> {
         self.binary.lock().unwrap().clone()
     }
 
-    /// Parse arguments from std::env::{args,vars}.
+    /// Parse arguments from `std::env::{args,vars}`.
+    ///
+    /// # Errors
+    ///
+    /// If any arguments fail to parse their values, this
+    /// will forward that error. Otherwise, see
+    /// [`ArgParseError`] for a list of all possible errors.
     pub fn parse(&self) -> Result<Vec<String>, ArgParseError> {
         self.parse_provided(env::args().collect::<Vec<_>>().as_slice(), env::vars())
     }
 
     /// Parse from the provided environment variables and CLI arguments.
+    ///
+    /// # Errors
+    ///
+    /// See [`parse`] for details.
     pub fn parse_provided<I: Iterator<Item = (String, String)>>(
         &self,
         cli: &[String],
@@ -151,6 +182,11 @@ impl ArgumentParser {
     /// If `reset == true`, clears the values of all arguments beforehand.
     /// You probably want to leave this at `false`, unless you're re-using
     /// your parser.
+    ///
+    /// # Errors
+    ///
+    /// See [`parse`] for details.
+    #[allow(clippy::missing_panics_doc)]
     pub fn parse_env<I: Iterator<Item = (String, String)>>(
         &self,
         args: I,
@@ -191,6 +227,11 @@ impl ArgumentParser {
     /// If `reset == true`, clears the values of all arguments beforehand.
     /// You probably want to leave this at `false`, unless you're re-using
     /// your parser.
+    ///
+    /// # Errors
+    ///
+    /// See [`parse`] for details.
+    #[allow(clippy::missing_panics_doc)]
     pub fn parse_cli(&self, args: &[String], reset: bool) -> Result<Vec<String>, ArgParseError> {
         let mut args = args.iter();
         *self.binary.lock().unwrap() = args.next().cloned();
@@ -246,7 +287,7 @@ impl ArgumentParser {
                                         .map_err(|e: ParseIntError| {
                                             ArgParseError::InvalidInteger(e.to_string())
                                         })?,
-                                ))
+                                ));
                             }
                             ArgumentValueType::U64 => {
                                 if consumed {
@@ -261,7 +302,7 @@ impl ArgumentParser {
                                         .map_err(|e: ParseIntError| {
                                             ArgParseError::InvalidUnsignedInteger(e.to_string())
                                         })?,
-                                ))
+                                ));
                             }
                             ArgumentValueType::Float => {
                                 if consumed {
@@ -276,7 +317,7 @@ impl ArgumentParser {
                                         .map_err(|e: ParseFloatError| {
                                             ArgParseError::InvalidInteger(e.to_string())
                                         })?,
-                                ))
+                                ));
                             }
                             ArgumentValueType::String => {
                                 if consumed {
@@ -288,7 +329,7 @@ impl ArgumentParser {
                                     args.next()
                                         .ok_or(ArgParseError::MissingValue(short.to_string()))?
                                         .clone(),
-                                ))
+                                ));
                             }
                         }
                     }
@@ -321,7 +362,7 @@ impl ArgumentParser {
                         .as_ref()
                         .parse()
                         .map_err(|e: ParseIntError| ArgParseError::InvalidInteger(e.to_string()))?,
-                ))
+                ));
             }
             ArgumentValueType::U64 => {
                 arg.val = Some(ArgumentValue::U64(
@@ -331,7 +372,7 @@ impl ArgumentParser {
                         .map_err(|e: ParseIntError| {
                             ArgParseError::InvalidUnsignedInteger(e.to_string())
                         })?,
-                ))
+                ));
             }
             ArgumentValueType::Float => {
                 arg.val = Some(ArgumentValue::Float(
@@ -339,14 +380,14 @@ impl ArgumentParser {
                         .as_ref()
                         .parse()
                         .map_err(|e: ParseFloatError| ArgParseError::InvalidFloat(e.to_string()))?,
-                ))
+                ));
             }
             ArgumentValueType::String => {
                 arg.val = Some(ArgumentValue::String(
                     val.ok_or(ArgParseError::MissingValue(name))?
                         .as_ref()
                         .to_string(),
-                ))
+                ));
             }
         }
 
