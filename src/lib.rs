@@ -351,9 +351,13 @@ impl ArgumentParser {
             ArgumentValueType::Bool => {
                 if let Some(val) = val {
                     let val = val.as_ref().trim();
-                    if val != "0" && val != "false" {
+                    if val == "0" || val == "false" {
+                        arg.val = Some(ArgumentValue::Bool(false));
+                    } else {
                         arg.val = Some(ArgumentValue::Bool(true));
                     }
+                } else {
+                    arg.val = Some(ArgumentValue::Bool(true));
                 }
             }
             ArgumentValueType::I64 => {
