@@ -3,14 +3,15 @@ use crate::prelude::*;
 sarge! {
     Args,
     first: bool,
-    @ok second: String,
-    @err third: Vec<i64>,
+    #ok second: String,
+    #err third: Vec<i64>,
     'f' fourth: f64,
 }
 
 #[test]
 fn test_macros() {
     let (args, _) = Args::parse_args(&[
+        "test".to_string(),
         "--first".to_string(),
         "--third".to_string(), "123,456,789".to_string(),
         "-f".to_string(), "10.11".to_string(),

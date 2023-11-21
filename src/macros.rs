@@ -41,7 +41,7 @@ macro_rules! __var_tag {
 
 #[macro_export]
 macro_rules! sarge {
-    ( $v:vis $name:ident, $( $( @ $spec:ident )? $( $short:literal )? $av:vis $long:ident : $typ:ty ),* $(,)? ) => {
+    ( $v:vis $name:ident, $( $( # $spec:ident )? $( $short:literal )? $av:vis $long:ident : $typ:ty ),* $(,)? ) => {
         $v struct $name {
             $( $av $long: $crate::__arg_typ!($($spec,)? $typ), )*
         }
