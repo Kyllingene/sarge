@@ -12,7 +12,7 @@ use std::{
 };
 
 // #[cfg(feature = "macros")]
-pub mod arguments;
+pub mod macros;
 
 pub mod tag;
 use tag::Tag;

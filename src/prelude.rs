@@ -3,4 +3,4 @@
 pub use crate::{tag, ArgumentParser, ArgParseError};
 
 #[cfg(feature = "macros")]
-pub use crate::{sarge, error_type};
+pub use crate::sarge;

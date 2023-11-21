@@ -13,10 +13,8 @@ keywords = ["cli", "argparse", "command-line"]
 categories = ["command-line-interface", ]
 
 [dependencies]
-sarge-macros = { path = "sarge-macros", optional = true }
-
-# DO NOT add any external dependencies!
+# DO NOT add any dependencies!
 
 [features]
 default = ["macros"]
-macros = ["sarge-macros"]
+macros = []

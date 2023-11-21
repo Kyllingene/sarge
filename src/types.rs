@@ -7,6 +7,8 @@ use std::{
 
 use crate::ArgumentValue;
 
+pub type ArgResult<T> = Result<T, <T as ArgumentType>::Error>;
+
 /// All the types that `ArgumentParser` can
 /// recognize. You can use [`String`][ArgumentValueType::String]
 /// to parse (and therefore implement) your own type.
@@ -34,7 +36,7 @@ pub trait ArgumentType: Sized {
     type Error: Default;
 
     fn arg_type() -> ArgumentValueType;
-    fn from_value(val: ArgumentValue) -> Result<Self, Self::Error>;
+    fn from_value(val: ArgumentValue) -> ArgResult<Self>;
 }
 
 impl ArgumentType for bool {
@@ -44,7 +46,7 @@ impl ArgumentType for bool {
         ArgumentValueType::Bool
     }
 
-    fn from_value(val: ArgumentValue) -> Result<Self, Self::Error> {
+    fn from_value(val: ArgumentValue) -> ArgResult<Self> {
         if let ArgumentValue::Bool(b) = val {
             Ok(b)
         } else {
@@ -60,7 +62,7 @@ impl ArgumentType for String {
         ArgumentValueType::String
     }
 
-    fn from_value(val: ArgumentValue) -> Result<Self, Self::Error> {
+    fn from_value(val: ArgumentValue) -> ArgResult<Self> {
         if let ArgumentValue::String(s) = val {
             Ok(s)
         } else {
@@ -76,7 +78,7 @@ impl ArgumentType for i64 {
         ArgumentValueType::I64
     }
 
-    fn from_value(val: ArgumentValue) -> Result<Self, Self::Error> {
+    fn from_value(val: ArgumentValue) -> ArgResult<Self> {
         if let ArgumentValue::I64(i) = val {
             Ok(i)
         } else {
@@ -92,7 +94,7 @@ impl ArgumentType for u64 {
         ArgumentValueType::U64
     }
 
-    fn from_value(val: ArgumentValue) -> Result<Self, Self::Error> {
+    fn from_value(val: ArgumentValue) -> ArgResult<Self> {
         if let ArgumentValue::U64(u) = val {
             Ok(u)
         } else {
@@ -108,7 +110,7 @@ impl ArgumentType for f64 {
         ArgumentValueType::Float
     }
 
-    fn from_value(val: ArgumentValue) -> Result<Self, Self::Error> {
+    fn from_value(val: ArgumentValue) -> ArgResult<Self> {
         if let ArgumentValue::Float(f) = val {
             Ok(f)
         } else {
@@ -127,7 +129,7 @@ where
         ArgumentValueType::String
     }
 
-    fn from_value(val: ArgumentValue) -> Result<Self, Self::Error> {
+    fn from_value(val: ArgumentValue) -> ArgResult<Self> {
         if let ArgumentValue::String(s) = val {
             let bits = s.split(',').map(|s| s.to_string());
             let mut values = Vec::new();
