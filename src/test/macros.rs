@@ -1,20 +1,18 @@
-use crate::{prelude::*, ArgParseError};
+use crate::prelude::*;
 
-#[derive(Arguments)]
-struct Args {
+sarge! {
+    Args,
     first: bool,
-    second: Option<String>,
-    third: Result<Vec<i64>, ArgParseError>,
+    @ok second: Option<String>,
+    @err third: Result<Vec<i64>, error_type!(Vec<i64>)>,
 
-    #[short = 'f']
+    // #[short = 'f']
     fourth: f64,
 }
 
 #[test]
 fn test_arguments() {
-    let mut args = Args::new();
-
-    args.parse_args(&[
+    let args = Args::parse_args(&[
         "--first".to_string(),
         "--third=123,456,789".to_string(),
         "-f 10.11".to_string(),
