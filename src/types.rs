@@ -1,9 +1,8 @@
 //! All interfaces for handling argument types.
 
-use std::{
-    error::Error,
-    fmt::{Debug, Display},
-};
+use std::error::Error;
+use std::fmt::{Debug, Display};
+use std::convert::Infallible;
 
 use crate::ArgumentValue;
 
@@ -28,19 +27,33 @@ pub enum ArgumentValueType {
 /// You can implement this for your own types!
 /// You would achieve this by returning
 /// [`ArgumentValueType::String`] from `arg_type`,
-/// and parsing a [`ArgumentValue::String`] into your
+/// and parsing an [`ArgumentValue::String`] into your
 /// type in `from_value`.
 ///
 /// An example can be found in `src/test/custom_type.rs`.
 pub trait ArgumentType: Sized {
-    type Error: Default;
+    /// What errors may occur during parsing.
+    type Error;
 
+    /// The type of argument you would like to be given.
+    /// Anything other than `String` will perform some
+    /// parsing behind-the-scenes.
     fn arg_type() -> ArgumentValueType;
+
+    /// Parse yourself from the argument type you chose in
+    /// [`arg_type`](`ArgumentType::arg_type`).
+    #[allow(clippy::missing_errors_doc)]
     fn from_value(val: ArgumentValue) -> ArgResult<Self>;
+
+    /// If no value was given, what the default should be, if any.
+    /// This defaults to `None`.
+    fn default_value() -> Option<Self> {
+        None
+    }
 }
 
 impl ArgumentType for bool {
-    type Error = ();
+    type Error = Infallible;
 
     fn arg_type() -> ArgumentValueType {
         ArgumentValueType::Bool
@@ -50,13 +63,17 @@ impl ArgumentType for bool {
         if let ArgumentValue::Bool(b) = val {
             Ok(b)
         } else {
-            Err(())
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
+    }
+
+    fn default_value() -> Option<Self> {
+        Some(false)
     }
 }
 
 impl ArgumentType for String {
-    type Error = ();
+    type Error = Infallible;
 
     fn arg_type() -> ArgumentValueType {
         ArgumentValueType::String
@@ -66,13 +83,13 @@ impl ArgumentType for String {
         if let ArgumentValue::String(s) = val {
             Ok(s)
         } else {
-            Err(())
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
     }
 }
 
 impl ArgumentType for i64 {
-    type Error = ();
+    type Error = Infallible;
 
     fn arg_type() -> ArgumentValueType {
         ArgumentValueType::I64
@@ -82,13 +99,13 @@ impl ArgumentType for i64 {
         if let ArgumentValue::I64(i) = val {
             Ok(i)
         } else {
-            Err(())
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
     }
 }
 
 impl ArgumentType for u64 {
-    type Error = ();
+    type Error = Infallible;
 
     fn arg_type() -> ArgumentValueType {
         ArgumentValueType::U64
@@ -98,13 +115,13 @@ impl ArgumentType for u64 {
         if let ArgumentValue::U64(u) = val {
             Ok(u)
         } else {
-            Err(())
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
     }
 }
 
 impl ArgumentType for f64 {
-    type Error = ();
+    type Error = Infallible;
 
     fn arg_type() -> ArgumentValueType {
         ArgumentValueType::Float
@@ -114,7 +131,7 @@ impl ArgumentType for f64 {
         if let ArgumentValue::Float(f) = val {
             Ok(f)
         } else {
-            Err(())
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
     }
 }
@@ -177,7 +194,7 @@ where
 
             Ok(values)
         } else {
-            Err(InvalidListError::Other)
+            unreachable!("ArgumentType::from_value was given the wrong type");
         }
     }
 }

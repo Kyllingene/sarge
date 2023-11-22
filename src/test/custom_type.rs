@@ -30,14 +30,16 @@ fn custom_type() {
         "Hello World !".to_string(),
     ];
 
-    let _ = parser.parse_args(&args).expect("failed to parse arguments");
+    let _ = parser
+        .parse_cli(&args, false)
+        .expect("failed to parse arguments");
 
     assert_eq!(
         my_argument.get(),
-        Ok(MyCustomType(vec![
+        Some(Ok(MyCustomType(vec![
             "Hello".to_string(),
             "World".to_string(),
             "!".to_string(),
-        ]))
+        ])))
     );
 }

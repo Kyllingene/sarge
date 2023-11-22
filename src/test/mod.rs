@@ -5,38 +5,49 @@ mod custom_type;
 #[cfg(feature = "macros")]
 mod macros;
 
+#[allow(unused)]
+macro_rules! create_args {
+    ( $( $arg:expr ),* $(,)? ) => {
+        [ $( $arg.to_string(), )* ]
+    };
+}
+
+#[allow(unused)]
+macro_rules! create_env {
+    ( $( $name:expr, $val:expr ),* $(,)? ) => {
+        [ $( ($name.to_string(), $val.to_string()), )* ]
+    };
+}
+
 #[test]
 fn basic_arg_test() {
     let parser = ArgumentParser::new();
     let name = parser.add(tag::long("name"));
     let help = parser.add(tag::short('h'));
 
-    let args = ["abc".to_string(), "--name".to_string(), "Jonah".to_string()];
+    let args = create_args!["abc", "--name", "Jonah"];
 
-    if let Err(e) = parser.parse_args(&args) {
-        panic!("Failed to parse first arguments: {}", e);
-    }
+    parser
+        .parse_cli(&args, false)
+        .expect("Failed to parse first arguments");
 
     assert_eq!(parser.binary(), Some("abc".into()));
 
-    assert_eq!(name.get_keep(), Ok("Jonah".to_string()));
+    assert_eq!(name.get_keep(), Some(Ok("Jonah".to_string())));
 
-    assert_eq!(help.get_keep(), Ok(false));
+    assert_eq!(help.get_keep(), Some(Ok(false)));
 
-    let args = ["abc".to_string(), "-h".to_string(), "Jonah".to_string()];
+    let args = create_args!["abc", "-h", "Jonah"];
 
-    let remainder = match parser.parse_args(&args) {
-        Err(e) => {
-            panic!("Failed to parse second arguments: {}", e);
-        }
-        Ok(r) => r,
-    };
+    let remainder = parser
+        .parse_cli(&args, true)
+        .expect("Failed to parse second arguments");
 
-    assert_eq!(name.get(), Err(()));
+    assert_eq!(name.get(), None);
 
-    assert_eq!(help.get(), Ok(true));
+    assert_eq!(help.get(), Some(Ok(true)));
 
-    assert_eq!(remainder[0], "Jonah".to_string());
+    assert_eq!(remainder.get(0), Some(&"Jonah".to_string()));
 }
 
 #[test]
@@ -47,13 +58,15 @@ fn multiple_short() {
     let c = parser.add(tag::short('c'));
     let d = parser.add(tag::short('d'));
 
-    let args = ["test".to_string(), "-abc".to_string()];
-    parser.parse_args(&args).expect("Failed to parse args");
+    let args = create_args!["test", "-abc"];
+    parser
+        .parse_cli(&args, false)
+        .expect("Failed to parse args");
 
-    assert_eq!(a.get(), Ok(true));
-    assert_eq!(b.get(), Ok(true));
-    assert_eq!(c.get(), Ok(true));
-    assert_eq!(d.get(), Ok(false));
+    assert_eq!(a.get(), Some(Ok(true)));
+    assert_eq!(b.get(), Some(Ok(true)));
+    assert_eq!(c.get(), Some(Ok(true)));
+    assert_eq!(d.get(), Some(Ok(false)));
 }
 
 #[test]
@@ -64,20 +77,16 @@ fn multiple_short_vals() {
     let c = parser.add(tag::short('c'));
     let d = parser.add::<i64>(tag::short('d'));
 
-    // This test and the next ensure no regressions in &Vec
+    let args = create_args!["test", "-abc", "test"];
+
     parser
-        .parse_args(
-            &["test", "-abc", "test"]
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>(),
-        )
+        .parse_cli(&args, false)
         .expect("Failed to parse args");
 
-    assert_eq!(a.get(), Ok(true));
-    assert_eq!(b.get(), Ok(true));
-    assert_eq!(c.get(), Ok("test".to_string()));
-    assert_eq!(d.get(), Err(()));
+    assert_eq!(a.get(), Some(Ok(true)));
+    assert_eq!(b.get(), Some(Ok(true)));
+    assert_eq!(c.get(), Some(Ok("test".to_string())));
+    assert_eq!(d.get(), None);
 }
 
 #[test]
@@ -89,14 +98,9 @@ fn multiple_short_vals_consume_same_value() {
     let _c = parser.add::<String>(tag::short('c'));
     let _d = parser.add::<String>(tag::short('d'));
 
-    parser
-        .parse_args(
-            &["test", "-abcd", "test"]
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>(),
-        )
-        .unwrap();
+    let args = create_args!["test", "-abcd", "test"];
+
+    parser.parse_cli(&args, false).unwrap();
 }
 
 #[test]
@@ -104,20 +108,81 @@ fn list_type() {
     let parser = ArgumentParser::new();
     let list = parser.add(tag::long("list"));
 
-    let args = [
-        "test".to_string(),
-        "--list".to_string(),
-        "Hello,World,!".to_string(),
+    let args = create_args![
+        "test",
+        "--list",
+        "Hello,World,!",
     ];
 
-    let _ = parser.parse_args(&args).expect("failed to parse arguments");
+    let _ = parser
+        .parse_cli(&args, false)
+        .expect("failed to parse arguments");
 
     assert_eq!(
         list.get(),
-        Ok(vec![
+        Some(Ok(vec![
             "Hello".to_string(),
             "World".to_string(),
             "!".to_string(),
-        ])
+        ]))
     );
+}
+
+#[test]
+fn int_list_type() {
+    let parser = ArgumentParser::new();
+    let list = parser.add(tag::long("list"));
+
+    let args = create_args![
+        "test",
+        "--list",
+        "123,456,789",
+    ];
+
+    let _ = parser
+        .parse_cli(&args, false)
+        .expect("failed to parse arguments");
+
+    assert_eq!(
+        list.get(),
+        Some(Ok(vec![
+            123i64,
+            456,
+            789,
+        ]))
+    );
+}
+
+#[test]
+fn basic_env_var() {
+    let parser = ArgumentParser::new();
+    let cfg = parser.add(tag::env("CONFIG_DIR"));
+
+    let args = create_env!["CONFIG_DIR", "/cfg"];
+
+    parser
+        .parse_env(args.into_iter(), false)
+        .expect("Failed to parse environment");
+
+    assert_eq!(cfg.get(), Some(Ok("/cfg".to_string())));
+}
+
+#[test]
+fn many_env_vars() {
+    let parser = ArgumentParser::new();
+    let cfg = parser.add(tag::env("CONFIG_DIR"));
+    let silent = parser.add(tag::env("SILENT"));
+    let threads = parser.add(tag::env("THREADS"));
+    let unused = parser.add::<i64>(tag::env("UNUSED"));
+
+    let args = create_env!["CONFIG_DIR", "/cfg", "SILENT", "0", "THREADS", "16",];
+
+    parser
+        .parse_env(args.into_iter(), false)
+        .expect("Failed to parse environment");
+
+    assert_eq!(cfg.get(), Some(Ok("/cfg".to_string())));
+    assert_eq!(silent.get(), Some(Ok(false)));
+    assert_eq!(threads.get(), Some(Ok(16u64)));
+    assert_eq!(unused.get(), None);
 }
