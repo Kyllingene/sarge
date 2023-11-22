@@ -4,7 +4,6 @@
 #![allow(clippy::must_use_candidate)]
 #![allow(clippy::redundant_closure_for_method_calls)]
 
-pub mod custom;
 pub mod prelude;
 
 use std::env;
@@ -20,42 +19,15 @@ mod error;
 pub use error::ArgParseError;
 
 mod types;
-use types::{ArgumentType, ArgumentValueType};
+pub use types::ArgumentType;
 
 #[cfg(test)]
 mod test;
 
-/// A value passed to an argument. This will always
-/// match the value returned from [`ArgumentType::arg_type`].
-///
-/// When implementing your own types, you
-/// almost always want [`ArgumentValue::String`].
-#[derive(Clone, Debug, PartialEq)]
-pub enum ArgumentValue {
-    Bool(bool),
-    String(String),
-    I64(i64),
-    U64(u64),
-    Float(f64),
-}
-
-impl ArgumentValue {
-    pub fn typ(&self) -> ArgumentValueType {
-        match self {
-            Self::Bool(_) => ArgumentValueType::Bool,
-            Self::String(_) => ArgumentValueType::String,
-            Self::I64(_) => ArgumentValueType::I64,
-            Self::U64(_) => ArgumentValueType::U64,
-            Self::Float(_) => ArgumentValueType::Float,
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 struct InternalArgument {
     tag: Full,
-    typ: ArgumentValueType,
-    val: Option<ArgumentValue>,
+    val: Option<String>,
 }
 
 /// A reference to an argument. Use this to
@@ -90,15 +62,15 @@ impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
     pub fn get_keep(&self) -> Result<T, T::Error> {
         let args = self.parser.args.lock().unwrap();
 
-        let Some(val) = args[self.i].clone().val else {
-            return if let Some(default) = T::default_value() {
-                Ok(default)
+        if let Some(val) = &args[self.i].val {
+            T::from_value(val)
+        } else {
+            if let Some(default) = T::default_value() {
+                Some(Ok(default))
             } else {
-                Err(T::Error::default())
+                None
             };
-        };
-
-        T::from_value(val)
+        }
     }
 }
 
