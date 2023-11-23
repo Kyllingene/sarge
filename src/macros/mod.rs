@@ -1,3 +1,6 @@
+//! The [`sarge!`] macro and all it's helper utilities.
+
+#[doc(hidden)]
 pub mod const_exprs;
 
 #[macro_export]

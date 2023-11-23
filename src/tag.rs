@@ -22,7 +22,7 @@ pub fn both<S: Into<char>, L: ToString>(s: S, l: L) -> Full {
     Full::from(Cli::Both(s.into(), l.to_string()))
 }
 
-/// Create an environment variable tag.
+/// Create an environment variable argument.
 #[inline]
 #[allow(clippy::needless_pass_by_value)]
 pub fn env<E: ToString>(e: E) -> Full {
@@ -61,26 +61,39 @@ impl Full {
         self.cli.is_some()
     }
 
-    /// Returns whether or not this tag has an environment
-    /// variable component.
+    /// Returns whether or not this tag has an environment variable component.
     pub fn has_env(&self) -> bool {
         self.env.is_some()
     }
 
-    pub fn matches(&self, tag: &str) -> bool {
+    /// Returns whether or not the CLI component matches the given tag.
+    /// Automatically determines whether it's a short or long tag.
+    pub fn matches_cli(&self, tag: &str) -> bool {
         self.cli.as_ref().map_or(false, |t| t.matches(tag))
     }
 
+    /// Returns whether or not the CLI component matches the given long-form
+    /// tag; assumes that the leading `--` has been stripped.
     pub fn matches_long(&self, long: &str) -> bool {
         self.cli
             .as_ref()
             .map_or(false, |tag| tag.matches_long(long))
     }
 
+    /// Returns whether or not the CLI component matches the given short-form
+    /// tag; assumes that the leading `-` has been stripped.
     pub fn matches_short(&self, short: char) -> bool {
         self.cli
             .as_ref()
             .map_or(false, |tag| tag.matches_short(short))
+    }
+
+    /// Returns whether or not the environment variable component matches the
+    /// given name.
+    pub fn matches_env(&self, env: &str) -> bool {
+        self.env
+            .as_ref()
+            .map_or(false, |arg| arg == env)
     }
 }
 
@@ -111,31 +124,34 @@ impl Hash for Full {
 /// `Short` means one dash and one character, e.g. `-h`.
 /// `Long` means two dashes and any number of characters,
 /// e.g. `--help`. `Both` means all of the above, e.g.
-/// `-h` OR `--help`.
+/// `-h` AND `--help`.
 #[derive(Debug, Clone)]
 pub enum Cli {
+    /// A short-form tag, e.g. `-h`.
     Short(char),
+    /// A long-form tag, e.g. `--help`.
     Long(String),
+    /// Both a long- and short-form tag, e.g. `-h` AND `--help`.
     Both(char, String),
 }
 
 impl Cli {
     /// Create a [`Full`] from a [`Cli`].
-    pub fn env(self, arg: String) -> Full {
+    pub fn env(self, env: String) -> Full {
         Full {
             cli: Some(self),
-            env: Some(arg),
+            env: Some(env),
         }
     }
 
-    // The only panic is `unwrap`, which is checked here.
-    #[allow(clippy::missing_panics_doc)]
+    /// Returns whether or not the given tag matches. Automatically determines
+    /// if it's a short or long tag.
     pub fn matches(&self, tag: &str) -> bool {
         if let Some(tag) = tag.strip_prefix("--") {
             self.matches_long(tag)
         } else if let Some(tag) = tag.strip_prefix('-') {
-            if tag.len() == 1 {
-                self.matches_short(tag.chars().next().unwrap())
+            if let Some(ch) = tag.chars().next() {
+                self.matches_short(ch)
             } else {
                 false
             }
@@ -144,6 +160,8 @@ impl Cli {
         }
     }
 
+    /// Returns whether or not the given long-form tag matches. Assumes that
+    /// the leading `--` has been stripped.
     pub fn matches_long(&self, long: &str) -> bool {
         match self {
             Cli::Short(_) => false,
@@ -151,6 +169,8 @@ impl Cli {
         }
     }
 
+    /// Returns whether or not the given short-form tag matches. Assumes that
+    /// the leading `-` has been stripped.
     pub fn matches_short(&self, short: char) -> bool {
         match self {
             Cli::Long(_) => false,

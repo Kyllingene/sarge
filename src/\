@@ -11,7 +11,7 @@ differences with the industry standard, [clap](https://crates.io/crates/clap):
 
 - No dependencies
     - Leads to small size: `40KB` compared to clap's `>2150KB`
-    - Leads to fast builds: `0.64s` to clap's `19.97s`, clean build
+    - Leads to quick builds: `0.64s` clean to clap's `19.97s`
 - No proc macros
     - Provides a powerful *regular* macro through the feature `macros`
 - Provides a cleaner builder-like interface

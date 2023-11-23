@@ -3,6 +3,7 @@
 use std::convert::Infallible;
 use std::num::{ParseFloatError, ParseIntError};
 
+/// The type returned when retrieving an argument.
 pub type ArgResult<T> = Option<Result<T, <T as ArgumentType>::Error>>;
 
 /// A type that can be used as an argument.

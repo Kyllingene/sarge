@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![warn(clippy::pedantic)]
+#![warn(missing_docs)]
 #![allow(clippy::needless_pass_by_value)]
 #![allow(clippy::must_use_candidate)]
 #![allow(clippy::redundant_closure_for_method_calls)]
