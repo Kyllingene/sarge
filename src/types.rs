@@ -10,8 +10,9 @@ pub type ArgResult<T> = Option<Result<T, <T as ArgumentType>::Error>>;
 /// `String`, and `Vec<T: ArgumentType>`.
 ///
 /// You can implement this for your own types! It's essentially the same as
-/// [`FromStr`], with one crucial difference: you can specify a default value
-/// (for when the argument wasn't provided) via [`default_value`].
+/// `FromStr`, with one crucial difference: you can specify a default value
+/// (for when the argument wasn't provided) via
+/// [`default_value`](ArgumentType::default_value).
 ///
 /// If your type doesn't consume any values, such as `bool`, set `CONSUMES` to
 /// false. Otherwise it defaults to true.

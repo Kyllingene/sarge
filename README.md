@@ -12,7 +12,6 @@ differences with the industry standard, [clap](https://crates.io/crates/clap):
 - No dependencies
 - No proc macros
     - Provides a very powerful *regular* macro through the feature `macros`
-- Supports environment variables
 - Provides a cleaner builder interface
 - Isn't a jack-of-all-trades
     - Doesn't support weird syntaxes
@@ -33,10 +32,11 @@ small; this forces me to be active in maintaining it.
 
 ## Features
 
+- Zero dependencies (yes, this is my favorite feature)
 - First-class "builder" pattern, but better
     - Used to be the only option, so it's been fleshed out
 - Non-proc macro for building a CLI interface
-- Zero dependencies (yes, this is my favorite feature)
+- Supports environment variables
 - Custom argument kinds
     - Simply impl a trait and it works like a builtin
 - Thread safety when using the builder 

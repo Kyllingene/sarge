@@ -63,7 +63,7 @@ impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
     ///
     /// # Errors
     ///
-    /// See [`get`] for possible errors.
+    /// See [`get`](ArgumentRef::get) for possible errors.
     #[allow(clippy::missing_panics_doc)]
     pub fn get_keep(&self) -> ArgResult<T> {
         let args = self.parser.args.lock().unwrap();
@@ -140,7 +140,7 @@ impl ArgumentParser {
     ///
     /// # Errors
     ///
-    /// See [`parse`] for details.
+    /// See [`parse`](ArgumentParser::parse) for details.
     pub fn parse_provided<I: Iterator<Item = (String, String)>>(
         &self,
         cli: &[String],
@@ -158,7 +158,7 @@ impl ArgumentParser {
     ///
     /// # Errors
     ///
-    /// See [`parse`] for details.
+    /// See [`parse`](ArgumentParser::parse) for details.
     #[allow(clippy::missing_panics_doc)]
     pub fn parse_env<I: Iterator<Item = (String, String)>>(
         &self,
@@ -203,7 +203,7 @@ impl ArgumentParser {
     ///
     /// # Errors
     ///
-    /// See [`parse`] for details.
+    /// See [`parse`](ArgumentParser::parse) for details.
     #[allow(clippy::missing_panics_doc)]
     pub fn parse_cli(&self, args: &[String], reset: bool) -> Result<Vec<String>, ArgParseError> {
         let mut args = args.iter().peekable();
