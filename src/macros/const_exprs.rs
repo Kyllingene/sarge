@@ -1,6 +1,7 @@
 /// Compile-time string replacement. Can only substitute
 /// bytes for bytes (to simplify code).
 #[macro_export]
+#[doc(hidden)]
 macro_rules! __replace {
     ( $input:expr, $from:expr, $to:expr ) => {{
         const OUTPUT_LEN: usize = $input.len();
