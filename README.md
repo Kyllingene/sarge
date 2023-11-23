@@ -10,10 +10,12 @@ dependencies, reducing cruft and therefore build times. Here are some
 differences with the industry standard, [clap](https://crates.io/crates/clap):
 
 - No dependencies
-    - Leads to small size: `40KB` compared to clap's `>2150KB`
+    - Leads to small size: `232KiB` compared to clap's `5.4MiB` 
+      (shallow clone of git repository | `du -h`)
     - Leads to fast builds: `0.64s` to clap's `19.97s`, clean build
+      (times on my old laptop over cellular)
 - No proc macros
-    - Provides a powerful *regular* macro through the feature `macros`
+    - Provides a powerful *regular* macro through the default feature `macros`
 - Provides a cleaner builder-like interface
 - Isn't a jack-of-all-trades
     - Doesn't support weird syntaxes
