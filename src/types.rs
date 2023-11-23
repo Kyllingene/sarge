@@ -1,7 +1,7 @@
 //! All interfaces for handling argument types.
 
-use std::num::{ParseIntError, ParseFloatError};
 use std::convert::Infallible;
+use std::num::{ParseFloatError, ParseIntError};
 
 pub type ArgResult<T> = Option<Result<T, <T as ArgumentType>::Error>>;
 
@@ -63,12 +63,16 @@ macro_rules! impl_intrinsics {
 }
 
 impl_intrinsics! {
-    i64, ParseIntError;
-    u64, ParseIntError;
+    i8, ParseIntError;
+    i16, ParseIntError;
     i32, ParseIntError;
+    i64, ParseIntError;
+    u8, ParseIntError;
+    u16, ParseIntError;
     u32, ParseIntError;
-    f64, ParseFloatError;
+    u64, ParseIntError;
     f32, ParseFloatError;
+    f64, ParseFloatError;
     String, Infallible;
 }
 
@@ -107,4 +111,3 @@ impl<T: ArgumentType> ArgumentType for Vec<T> {
         Some(Ok(values))
     }
 }
-

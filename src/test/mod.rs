@@ -105,11 +105,7 @@ fn list_type() {
     let parser = ArgumentParser::new();
     let list = parser.add(tag::long("list"));
 
-    let args = create_args![
-        "test",
-        "--list",
-        "Hello,World,!",
-    ];
+    let args = create_args!["test", "--list", "Hello,World,!",];
 
     let _ = parser
         .parse_cli(&args, false)
@@ -130,24 +126,13 @@ fn int_list_type() {
     let parser = ArgumentParser::new();
     let list = parser.add(tag::long("list"));
 
-    let args = create_args![
-        "test",
-        "--list",
-        "123,456,789",
-    ];
+    let args = create_args!["test", "--list", "123,456,789",];
 
     let _ = parser
         .parse_cli(&args, false)
         .expect("failed to parse arguments");
 
-    assert_eq!(
-        list.get(),
-        Some(Ok(vec![
-            123i64,
-            456,
-            789,
-        ]))
-    );
+    assert_eq!(list.get(), Some(Ok(vec![123i64, 456, 789,])));
 }
 
 #[test]

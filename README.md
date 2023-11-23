@@ -1,4 +1,4 @@
-# sarge
+# Sarge
 
 ![build status](https://github.com/kyllingene/sarge/actions/workflows/rust.yml/badge.svg)
 ![license](https://img.shields.io/crates/l/sarge)
@@ -16,6 +16,7 @@ differences with the industry standard, [clap](https://crates.io/crates/clap):
 - Provides a cleaner builder interface
 - Isn't a jack-of-all-trades
     - Doesn't support weird syntaxes
+    - All macro-made arguments have to have a long form
     - Focuses on sensible defaults to minimize effort for everyone involved
     - Doesn't provide help messages, completions, etc.
     - Doesn't support nested arguments
@@ -30,7 +31,47 @@ that there was a good, light alternative to clap. Use whichever one suits
 your use-case. I personally use sarge for all my projects, because they're all
 small; this forces me to be active in maintaining it.
 
-Here's a giant example using all the bells and whistles
+## Features
+
+- First-class "builder" pattern, but better
+    - Used to be the only option, so it's been fleshed out
+- Non-proc macro for building a CLI interface
+- Zero dependencies (yes, this is my favorite feature)
+- Custom argument kinds
+    - Simply impl a trait and it works like a builtin
+- Thread safety when using the builder 
+- The following builtin argument types:
+    - `bool`
+    - `i8/i16/i32/i64`
+    - `u8/u16/u32/u64`
+    - `f32/f64`
+    - `String`
+    - `Vec<T>` where `T: ArgumentType`
+
+## Grocery list
+
+- Better unit testing
+    - There are tests for everything, but they aren't top-priority yet
+- More maintainers
+- Better code styling
+    - Probably remove `clippy::pedantic` and get more fine-grained
+- Better, fuller docs
+    - They're usable, but (like tests) aren't top-priority
+
+## Contributing
+
+These mostly stem from two things: a single maintainer, and a lack of interest.
+If you use sarge, ***please*** star it on GitHub, or leave issues! It tells me
+that others are interested in the project, and pushes me to be more rigorous
+and develop it more.
+
+As for the single maintainer, I am happy to accept pull requests. Just make
+sure it passes `cargo fmt`, `cargo clippy` and `cargo test`.
+
+## Examples
+
+Here's a giant example using all the bells and whistles; note that if you
+disable the `macros` feature, this won't compile:
 
 <details>
 

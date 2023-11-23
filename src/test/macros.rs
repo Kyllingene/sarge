@@ -36,9 +36,12 @@ fn test_macros() {
     let (args, _) = Args::parse_cli(&create_args![
         "test",
         "--first-arg",
-        "--third", "123,456,789",
-        "-f", "10.11",
-    ]).expect("failed to parse arguments");
+        "--third",
+        "123,456,789",
+        "-f",
+        "10.11",
+    ])
+    .expect("failed to parse arguments");
 
     assert!(args.first_arg);
     assert_eq!(args.second, None);

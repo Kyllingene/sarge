@@ -254,7 +254,7 @@ impl ArgumentParser {
                             .iter_mut()
                             .find(|arg| arg.tag.matches_short(short))
                             .ok_or(ArgParseError::UnknownFlag(short.to_string()))?;
-                        
+
                         if arg.consumes && consumed {
                             return Err(ArgParseError::ConsumedValue(shorts.to_string()));
                         }

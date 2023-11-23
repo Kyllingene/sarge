@@ -13,7 +13,7 @@ macro_rules! __replace {
 
 pub const fn replace<const N: usize>(input: &str, from: char, to: char) -> [u8; N] {
     let mut buf = clone_bytes::<N>(input.as_bytes());
-    
+
     let mut i = 0;
     while i < N {
         if buf[i] == from as u8 {
@@ -39,4 +39,3 @@ const fn clone_bytes<const N: usize>(bytes: &[u8]) -> [u8; N] {
 
     buf
 }
-

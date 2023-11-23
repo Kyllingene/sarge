@@ -1,11 +1,6 @@
 pub mod const_exprs;
 
 #[macro_export]
-macro_rules! argument_result {
-    ( $typ:ty ) => { std::result::Result<$typ, <$typ as $crate::ArgumentType>::Error> };
-}
-
-#[macro_export]
 macro_rules! __parse_arg {
     ( err => $parser:expr, $name:ident ) => {
         let $name = $name.get();
@@ -16,7 +11,8 @@ macro_rules! __parse_arg {
     };
 
     ( => $parser:expr, $name:ident ) => {
-        let $name = $name.get()
+        let $name = $name
+            .get()
             .expect("Tried to unwrap argument that wasn't passed")
             .expect("Tried to unwrap argument that failed to parse");
     };
@@ -25,7 +21,7 @@ macro_rules! __parse_arg {
 #[macro_export]
 macro_rules! __arg_typ {
     ( err , $typ:ty ) => {
-        std::option::Option<$crate::argument_result!($typ)>
+        $crate::ArgResult<$typ>
     };
 
     ( ok , $typ:ty ) => {
@@ -39,10 +35,19 @@ macro_rules! __arg_typ {
 
 #[macro_export]
 macro_rules! __var_tag {
-    ( $long:ident ) => { $crate::tag::long($crate::__replace!(stringify!($long), '_', '-')) };
-    ( $short:literal $long:ident ) => { $crate::tag::both($short, $crate::__replace!(stringify!($long), '_', '-')) };
-    ( $long:ident $env:ident ) => { $crate::tag::long($crate::__replace!(stringify!($long), '_', '-')).env(stringify!($env)) };
-    ( $short:literal $long:ident $env:ident ) => { $crate::tag::both($short, $crate::__replace!(stringify!($long), '_', '-')).env(stringify!($env)) };
+    ( $long:ident ) => {
+        $crate::tag::long($crate::__replace!(stringify!($long), '_', '-'))
+    };
+    ( $short:literal $long:ident ) => {
+        $crate::tag::both($short, $crate::__replace!(stringify!($long), '_', '-'))
+    };
+    ( $long:ident $env:ident ) => {
+        $crate::tag::long($crate::__replace!(stringify!($long), '_', '-')).env(stringify!($env))
+    };
+    ( $short:literal $long:ident $env:ident ) => {
+        $crate::tag::both($short, $crate::__replace!(stringify!($long), '_', '-'))
+            .env(stringify!($env))
+    };
 }
 
 #[macro_export]
@@ -51,7 +56,7 @@ macro_rules! sarge {
         $v struct $name {
             $( $av $long: $crate::__arg_typ!($($spec,)? $typ), )*
         }
-        
+
         impl $name {
             /// Parse arguments from `std::env::{args,vars}`.
             ///
@@ -63,7 +68,7 @@ macro_rules! sarge {
             #[allow(unused)]
             pub fn parse() -> std::result::Result<(Self, std::vec::Vec<std::string::String>), ArgParseError> {
                 Self::parse_provided(
-                    std::env::args().collect::<std::vec::Vec<_>>().as_slice(), 
+                    std::env::args().collect::<std::vec::Vec<_>>().as_slice(),
                     std::env::vars(),
                 )
             }
@@ -116,7 +121,7 @@ macro_rules! sarge {
                 env: I,
             ) -> std::result::Result<
                     (Self, std::vec::Vec<std::string::String>), $crate::ArgParseError
-                > where 
+                > where
                     I: std::iter::Iterator<Item = (std::string::String, std::string::String)>
             {
                 let parser = $crate::ArgumentParser::new();
@@ -142,4 +147,3 @@ macro_rules! sarge {
         }
     };
 }
-

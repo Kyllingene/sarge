@@ -1,4 +1,4 @@
-use crate::{ArgumentType, ArgResult, prelude::*};
+use crate::{prelude::*, ArgResult, ArgumentType};
 
 #[derive(Debug, PartialEq, Eq)]
 struct MyCustomType(Vec<String>);
