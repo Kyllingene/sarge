@@ -91,9 +91,7 @@ impl Full {
     /// Returns whether or not the environment variable component matches the
     /// given name.
     pub fn matches_env(&self, env: &str) -> bool {
-        self.env
-            .as_ref()
-            .map_or(false, |arg| arg == env)
+        self.env.as_ref().map_or(false, |arg| arg == env)
     }
 }
 

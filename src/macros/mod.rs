@@ -69,7 +69,7 @@ macro_rules! __var_tag {
 /// sarge! {
 ///     // This is the name of our struct.
 ///     Args,
-/// 
+///
 ///     // These are our arguments. Each will have a long variant matching the
 ///     // field name one-to-one, with one exception: all underscores are
 ///     // replaced by dashes at compile-time.
@@ -78,41 +78,41 @@ macro_rules! __var_tag {
 ///     // unwrapped; if the argument wasn't passed, or it failed to parse, this
 ///     // will panic. Thankfully, `bool` arguments are immune to both, and
 ///     // `String` arguments are immune to the latter.
-/// 
+///
 ///     first: bool, // true if `--first` is passed, false otherwise
-/// 
+///
 ///     // If you want a short variant (e.g. '-s'), you can specify one with a char
 ///     // literal before the name (but after the wrapper, if any):
 ///     's' second: String,
-/// 
+///
 ///     // You can also specify an environment variable counterpart. If an argument
 ///     // has values for both an environment variable and a CLI argument, the CLI
 ///     // argument takes precedence.
 ///     @ENV_VAR env_var: i32,
-/// 
+///
 ///     // `#err` makes the argument an `Option<Result<T, _>>`.
 ///     #err foo: f32,
-/// 
+///
 ///     // `#ok` makes the argument an `Option<T>`, discarding any parsing errors.
 ///     #ok bar: f64,
-/// 
+///
 ///     // Here's every feature in one argument:
 ///     // an `Option<Result<T, _>>` that can be set via `-b`, `--baz`, or `BAZ=`.
 ///     #err 'b' @BAZ baz: Vec<u64>,
 /// }
-/// 
+///
 /// # macro_rules! create_args {
 /// #     ( $( $arg:expr ),* $(,)? ) => {
 /// #         [ $( $arg.to_string(), )* ]
 /// #     };
 /// # }
-/// # 
+/// #
 /// # macro_rules! create_env {
 /// #     ( $( $name:expr, $val:expr ),* $(,)? ) => {
 /// #         [ $( ($name.to_string(), $val.to_string()), )* ]
 /// #     };
 /// # }
-/// 
+///
 /// fn main() {
 ///     let args = create_args![
 ///         "test",           // The name of the executable.
@@ -122,19 +122,19 @@ macro_rules! __var_tag {
 ///         "foobar",         // This value isn't part of an argument.
 ///         "--baz", "1,2,3", // Remember this value...
 ///     ];
-/// 
+///
 ///     let env = create_env![
 ///         "ENV_VAR", "42",
 ///         "BAZ", "4,5,6",   // ...and this one.
 ///     ];
-/// 
+///
 ///     // Normally, you would use `::parse()` here. However, since this gets run
 ///     // as a test, we'll manually pass the arguments along.
 ///     let (args, remainder) = Args::parse_provided(&args, env.into_iter())
 ///         .expect("Failed to parse arguments");
-/// 
+///
 ///     assert_eq!(remainder, vec!["foobar"]);
-/// 
+///
 ///     assert!(args.first);
 ///     assert_eq!(args.second, "Hello, World!");
 ///     assert_eq!(args.env_var, 42);
