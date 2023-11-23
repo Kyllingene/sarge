@@ -59,13 +59,71 @@ macro_rules! __var_tag {
 #[macro_export]
 /// A macro to quickly define your CLI interface with struct-like syntax.
 ///
+/// The syntax looks like this:
+///
+/// ```ignore
+/// sarge! {
+///     StructName,
+///     [fields...]
+/// }
+/// ```
+///
+/// Each field has the following form:
+/// ```ignore
+///     [#MARKER] [SHORT_FORM] [@ENV_FORM] long_form: type,
+/// ```
+///
+/// # Wrapper markers
+///
+/// You can specify the type of each argument by prepending a "wrapper" marker,
+/// like so:
+///
+/// ```ignore
+///     #ok name: type,
+/// ```
+///
+/// There are three kinds of wrappers: `#err`, `#ok`, and none at all. `#err`
+/// wraps the type in `Option<Result<T, _>>`: if the argument wasn't passed at
+/// all, it's `None`; if it failed to parse, it's `Some(Err(_))`.
+///
+/// `#ok` wraps it in `Option<T>`: if the argument wasn't passed, or failed to
+/// parse, it's `None`.
+///
+/// No wrapper means that if the argument wasn't passed, or failed to parse,
+/// trying to parse your arguments will panic. It gives basic error messages,
+/// but this should still be avoided if possible. It is, however, save to use
+/// this marker on `bool` arguments, since they will default to `false`.
+///
+/// # Short forms
+///
+/// To specify a short form for your argument, place a character literal after
+/// your wrapper marker (if any), like so:
+///
+/// ```ignore
+///     #ok 'a' name: type,
+/// ```
+///
+/// Note that you cannot specify an argument that has a short form but no long
+/// form. This is for simplicity's sake, and is rarely needed anyways. The
+/// long form of your argument is derived from the fields name, with any
+/// underscores replaced by dashes at compile-time.
+///
+/// # Environment variables
+///
+/// To specify an environment variable form, place the name preceded by an `@`
+/// symbol after your short form (if any), like so:
+///
+/// ```ignore
+///     #ok 'a' @ENV_FORM name: type,
+/// ```
+///
+/// The name will not be altered in any way, so make sure it's unique and won't
+/// clash with any other common environment variables.
+///
 /// # Example
 ///
 /// ```
 /// # use sarge::prelude::*;
-/// // This is a normal, non-proc macro. That means sarge is still
-/// // zero-dependency! The syntax may seem a little strange at first, but it
-/// // should help greatly when defining your CLI interface.
 /// sarge! {
 ///     // This is the name of our struct.
 ///     Args,
