@@ -2,12 +2,17 @@ use crate::prelude::*;
 
 mod custom_type;
 
+#[cfg(feature = "macros")]
+mod macros;
+
+#[allow(unused)]
 macro_rules! create_args {
     ( $( $arg:expr ),* $(,)? ) => {
-        [ $($arg.to_string(),)* ]
+        [ $( $arg.to_string(), )* ]
     };
 }
 
+#[allow(unused)]
 macro_rules! create_env {
     ( $( $name:expr, $val:expr ),* $(,)? ) => {
         [ $( ($name.to_string(), $val.to_string()), )* ]
@@ -20,28 +25,25 @@ fn basic_arg_test() {
     let name = parser.add(tag::long("name"));
     let help = parser.add(tag::short('h'));
 
-    let args = create_args!["abc", "--name", "Jonah"];
+    let args = create_args!["test", "--name", "Jonah"];
 
-    parser
+    let remainder = parser
         .parse_cli(&args, false)
         .expect("Failed to parse first arguments");
 
-    assert_eq!(parser.binary(), Some("abc".into()));
+    assert_eq!(parser.binary(), Some("test".into()));
+    assert_eq!(name.get_keep(), Some(Ok("Jonah".to_string())));
+    assert_eq!(help.get_keep(), Some(Ok(false)));
+    assert!(remainder.is_empty());
 
-    assert_eq!(name.get_keep(), Ok("Jonah".to_string()));
-
-    assert_eq!(help.get_keep(), Ok(false));
-
-    let args = create_args!["abc", "-h", "Jonah"];
+    let args = create_args!["test", "-h", "Jonah"];
 
     let remainder = parser
         .parse_cli(&args, true)
         .expect("Failed to parse second arguments");
 
-    assert_eq!(name.get(), Err(()));
-
-    assert_eq!(help.get(), Ok(true));
-
+    assert_eq!(name.get(), None);
+    assert_eq!(help.get(), Some(Ok(true)));
     assert_eq!(remainder.get(0), Some(&"Jonah".to_string()));
 }
 
@@ -58,10 +60,10 @@ fn multiple_short() {
         .parse_cli(&args, false)
         .expect("Failed to parse args");
 
-    assert_eq!(a.get(), Ok(true));
-    assert_eq!(b.get(), Ok(true));
-    assert_eq!(c.get(), Ok(true));
-    assert_eq!(d.get(), Ok(false));
+    assert_eq!(a.get(), Some(Ok(true)));
+    assert_eq!(b.get(), Some(Ok(true)));
+    assert_eq!(c.get(), Some(Ok(true)));
+    assert_eq!(d.get(), Some(Ok(false)));
 }
 
 #[test]
@@ -78,10 +80,10 @@ fn multiple_short_vals() {
         .parse_cli(&args, false)
         .expect("Failed to parse args");
 
-    assert_eq!(a.get(), Ok(true));
-    assert_eq!(b.get(), Ok(true));
-    assert_eq!(c.get(), Ok("test".to_string()));
-    assert_eq!(d.get(), Err(()));
+    assert_eq!(a.get(), Some(Ok(true)));
+    assert_eq!(b.get(), Some(Ok(true)));
+    assert_eq!(c.get(), Some(Ok("test".to_string())));
+    assert_eq!(d.get(), None);
 }
 
 #[test]
@@ -103,10 +105,10 @@ fn list_type() {
     let parser = ArgumentParser::new();
     let list = parser.add(tag::long("list"));
 
-    let args = [
-        "test".to_string(),
-        "--list".to_string(),
-        "Hello,World,!".to_string(),
+    let args = create_args![
+        "test",
+        "--list",
+        "Hello,World,!",
     ];
 
     let _ = parser
@@ -115,11 +117,36 @@ fn list_type() {
 
     assert_eq!(
         list.get(),
-        Ok(vec![
+        Some(Ok(vec![
             "Hello".to_string(),
             "World".to_string(),
             "!".to_string(),
-        ])
+        ]))
+    );
+}
+
+#[test]
+fn int_list_type() {
+    let parser = ArgumentParser::new();
+    let list = parser.add(tag::long("list"));
+
+    let args = create_args![
+        "test",
+        "--list",
+        "123,456,789",
+    ];
+
+    let _ = parser
+        .parse_cli(&args, false)
+        .expect("failed to parse arguments");
+
+    assert_eq!(
+        list.get(),
+        Some(Ok(vec![
+            123i64,
+            456,
+            789,
+        ]))
     );
 }
 
@@ -134,7 +161,7 @@ fn basic_env_var() {
         .parse_env(args.into_iter(), false)
         .expect("Failed to parse environment");
 
-    assert_eq!(cfg.get(), Ok("/cfg".to_string()));
+    assert_eq!(cfg.get(), Some(Ok("/cfg".to_string())));
 }
 
 #[test]
@@ -151,8 +178,8 @@ fn many_env_vars() {
         .parse_env(args.into_iter(), false)
         .expect("Failed to parse environment");
 
-    assert_eq!(cfg.get(), Ok("/cfg".to_string()));
-    assert_eq!(silent.get(), Ok(false));
-    assert_eq!(threads.get(), Ok(16u64));
-    assert_eq!(unused.get(), Err(()));
+    assert_eq!(cfg.get(), Some(Ok("/cfg".to_string())));
+    assert_eq!(silent.get(), Some(Ok(false)));
+    assert_eq!(threads.get(), Some(Ok(16u64)));
+    assert_eq!(unused.get(), None);
 }

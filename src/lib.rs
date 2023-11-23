@@ -3,14 +3,16 @@
 #![allow(clippy::needless_pass_by_value)]
 #![allow(clippy::must_use_candidate)]
 #![allow(clippy::redundant_closure_for_method_calls)]
+#![allow(clippy::float_cmp)]
 
 pub mod prelude;
 
 use std::env;
-use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::num::{ParseFloatError, ParseIntError};
 use std::sync::{Arc, Mutex};
+
+#[cfg(feature = "macros")]
+pub mod macros;
 
 pub mod tag;
 use tag::Full;
@@ -19,15 +21,17 @@ mod error;
 pub use error::ArgParseError;
 
 mod types;
-pub use types::ArgumentType;
+pub use types::{ArgResult, ArgumentType};
 
 #[cfg(test)]
 mod test;
 
 #[derive(Clone, Debug)]
+#[allow(clippy::option_option)]
 struct InternalArgument {
     tag: Full,
-    val: Option<String>,
+    consumes: bool,
+    val: Option<Option<String>>,
 }
 
 /// A reference to an argument. Use this to
@@ -46,9 +50,11 @@ impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
     ///
     /// If the argument type fails to parse,
     /// this will return that argument types error.
+    /// If there was no value given to the argument,
+    /// returns `None`.
     ///
     /// For `String` and `bool`, this can never fail.
-    pub fn get(self) -> Result<T, T::Error> {
+    pub fn get(self) -> Option<Result<T, T::Error>> {
         self.get_keep()
     }
 
@@ -59,17 +65,13 @@ impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
     ///
     /// See [`get`] for possible errors.
     #[allow(clippy::missing_panics_doc)]
-    pub fn get_keep(&self) -> Result<T, T::Error> {
+    pub fn get_keep(&self) -> ArgResult<T> {
         let args = self.parser.args.lock().unwrap();
 
         if let Some(val) = &args[self.i].val {
-            T::from_value(val)
+            T::from_value(val.as_deref())
         } else {
-            if let Some(default) = T::default_value() {
-                Some(Ok(default))
-            } else {
-                None
-            };
+            T::default_value().map(Ok)
         }
     }
 }
@@ -100,10 +102,9 @@ impl ArgumentParser {
     /// Adds an argument to the parser.
     #[allow(clippy::missing_panics_doc)]
     pub fn add<T: ArgumentType>(&self, tag: Full) -> ArgumentRef<T> {
-        let typ = T::arg_type();
         let arg = InternalArgument {
             tag,
-            typ,
+            consumes: T::CONSUMES,
             val: None,
         };
 
@@ -187,7 +188,7 @@ impl ArgumentParser {
                 .iter_mut()
                 .find(|arg| arg.tag.env.as_ref().is_some_and(|env| env == key_ref))
             {
-                Self::parse_arg(arg, Some(val), key)?;
+                arg.val = Some(Some(val));
             }
         }
 
@@ -205,7 +206,7 @@ impl ArgumentParser {
     /// See [`parse`] for details.
     #[allow(clippy::missing_panics_doc)]
     pub fn parse_cli(&self, args: &[String], reset: bool) -> Result<Vec<String>, ArgParseError> {
-        let mut args = args.iter();
+        let mut args = args.iter().peekable();
         *self.binary.lock().unwrap() = args.next().cloned();
 
         let mut remainder = Vec::new();
@@ -220,9 +221,9 @@ impl ArgumentParser {
             if let Some(mut long) = arg.strip_prefix("--") {
                 let val = if let Some((left, right)) = long.split_once('=') {
                     long = left;
-                    Some(right.to_string())
+                    Some(right)
                 } else {
-                    args.next().cloned()
+                    None
                 };
 
                 let mut pre_args = self.args.lock().unwrap();
@@ -231,79 +232,41 @@ impl ArgumentParser {
                     .find(|arg| arg.tag.matches_long(long))
                     .ok_or(ArgParseError::UnknownFlag(long.to_string()))?;
 
-                Self::parse_arg(arg, val, long.to_string())?;
-            } else if let Some(short) = arg.strip_prefix('-') {
-                if short.is_empty() {
+                let val = if arg.consumes {
+                    if val.is_none() {
+                        args.next().cloned()
+                    } else {
+                        val.map(str::to_string)
+                    }
+                } else {
+                    None
+                };
+
+                arg.val = Some(val);
+            } else if let Some(shorts) = arg.strip_prefix('-') {
+                if shorts.is_empty() {
                     remainder.push(String::from("-"));
                 } else {
                     let mut consumed = false;
                     let mut pre_args = self.args.lock().unwrap();
-                    for short in short.chars() {
+                    for short in shorts.chars() {
                         let arg = pre_args
                             .iter_mut()
                             .find(|arg| arg.tag.matches_short(short))
                             .ok_or(ArgParseError::UnknownFlag(short.to_string()))?;
-
-                        match arg.typ {
-                            ArgumentValueType::Bool => arg.val = Some(ArgumentValue::Bool(true)),
-                            ArgumentValueType::I64 => {
-                                if consumed {
-                                    return Err(ArgParseError::ConsumedValue(short.to_string()));
-                                }
-
-                                consumed = true;
-                                arg.val = Some(ArgumentValue::I64(
-                                    args.next()
-                                        .ok_or(ArgParseError::MissingValue(short.to_string()))?
-                                        .parse()
-                                        .map_err(|e: ParseIntError| {
-                                            ArgParseError::InvalidInteger(e.to_string())
-                                        })?,
-                                ));
-                            }
-                            ArgumentValueType::U64 => {
-                                if consumed {
-                                    return Err(ArgParseError::ConsumedValue(short.to_string()));
-                                }
-
-                                consumed = true;
-                                arg.val = Some(ArgumentValue::U64(
-                                    args.next()
-                                        .ok_or(ArgParseError::MissingValue(short.to_string()))?
-                                        .parse()
-                                        .map_err(|e: ParseIntError| {
-                                            ArgParseError::InvalidUnsignedInteger(e.to_string())
-                                        })?,
-                                ));
-                            }
-                            ArgumentValueType::Float => {
-                                if consumed {
-                                    return Err(ArgParseError::ConsumedValue(short.to_string()));
-                                }
-
-                                consumed = true;
-                                arg.val = Some(ArgumentValue::Float(
-                                    args.next()
-                                        .ok_or(ArgParseError::MissingValue(short.to_string()))?
-                                        .parse()
-                                        .map_err(|e: ParseFloatError| {
-                                            ArgParseError::InvalidInteger(e.to_string())
-                                        })?,
-                                ));
-                            }
-                            ArgumentValueType::String => {
-                                if consumed {
-                                    return Err(ArgParseError::ConsumedValue(short.to_string()));
-                                }
-
-                                consumed = true;
-                                arg.val = Some(ArgumentValue::String(
-                                    args.next()
-                                        .ok_or(ArgParseError::MissingValue(short.to_string()))?
-                                        .clone(),
-                                ));
-                            }
+                        
+                        if arg.consumes && consumed {
+                            return Err(ArgParseError::ConsumedValue(shorts.to_string()));
                         }
+
+                        let next = if arg.consumes {
+                            consumed = true;
+                            args.next().cloned()
+                        } else {
+                            None
+                        };
+
+                        arg.val = Some(next);
                     }
                 }
             } else {
@@ -312,61 +275,5 @@ impl ArgumentParser {
         }
 
         Ok(remainder)
-    }
-
-    fn parse_arg<S: AsRef<str>>(
-        arg: &mut InternalArgument,
-        val: Option<S>,
-        name: String,
-    ) -> Result<(), ArgParseError> {
-        match arg.typ {
-            ArgumentValueType::Bool => {
-                if let Some(val) = val {
-                    let val = val.as_ref().trim();
-                    if val == "0" || val == "false" {
-                        arg.val = Some(ArgumentValue::Bool(false));
-                    } else {
-                        arg.val = Some(ArgumentValue::Bool(true));
-                    }
-                } else {
-                    arg.val = Some(ArgumentValue::Bool(true));
-                }
-            }
-            ArgumentValueType::I64 => {
-                arg.val = Some(ArgumentValue::I64(
-                    val.ok_or(ArgParseError::MissingValue(name))?
-                        .as_ref()
-                        .parse()
-                        .map_err(|e: ParseIntError| ArgParseError::InvalidInteger(e.to_string()))?,
-                ));
-            }
-            ArgumentValueType::U64 => {
-                arg.val = Some(ArgumentValue::U64(
-                    val.ok_or(ArgParseError::MissingValue(name))?
-                        .as_ref()
-                        .parse()
-                        .map_err(|e: ParseIntError| {
-                            ArgParseError::InvalidUnsignedInteger(e.to_string())
-                        })?,
-                ));
-            }
-            ArgumentValueType::Float => {
-                arg.val = Some(ArgumentValue::Float(
-                    val.ok_or(ArgParseError::MissingValue(name))?
-                        .as_ref()
-                        .parse()
-                        .map_err(|e: ParseFloatError| ArgParseError::InvalidFloat(e.to_string()))?,
-                ));
-            }
-            ArgumentValueType::String => {
-                arg.val = Some(ArgumentValue::String(
-                    val.ok_or(ArgParseError::MissingValue(name))?
-                        .as_ref()
-                        .to_string(),
-                ));
-            }
-        }
-
-        Ok(())
     }
 }

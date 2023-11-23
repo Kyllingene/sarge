@@ -2,7 +2,7 @@ use std::{error::Error, fmt::Display};
 
 /// An error that occurred while parsing arguments,
 /// either CLI, environment variables, or provided.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 #[allow(clippy::module_name_repetitions)]
 pub enum ArgParseError {

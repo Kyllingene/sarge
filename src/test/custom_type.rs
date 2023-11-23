@@ -1,4 +1,4 @@
-use crate::{ArgumentType, prelude::*};
+use crate::{ArgumentType, ArgResult, prelude::*};
 
 #[derive(Debug, PartialEq, Eq)]
 struct MyCustomType(Vec<String>);
@@ -6,8 +6,8 @@ struct MyCustomType(Vec<String>);
 impl ArgumentType for MyCustomType {
     type Error = ();
 
-    fn from_value(val: &str) -> Result<Self, Self::Error> {
-        Ok(Self(val.split(' ').map(|s| s.to_string()).collect()))
+    fn from_value(val: Option<&str>) -> ArgResult<Self> {
+        Some(Ok(Self(val?.split(' ').map(|s| s.to_string()).collect())))
     }
 }
 
@@ -28,10 +28,10 @@ fn custom_type() {
 
     assert_eq!(
         my_argument.get(),
-        Ok(MyCustomType(vec![
+        Some(Ok(MyCustomType(vec![
             "Hello".to_string(),
             "World".to_string(),
             "!".to_string(),
-        ]))
+        ])))
     );
 }

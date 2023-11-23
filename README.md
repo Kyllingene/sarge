@@ -4,63 +4,119 @@
 ![license](https://img.shields.io/crates/l/sarge)
 ![version](https://img.shields.io/crates/v/sarge)
 
-Sarge is a simple, lightweight argument parser. It has two styles of argument: short (e.g. `-h`) and long (e.g. `--help`) (and both), and six different argument types: `i64`, `u64`, `f64`, `String`, `bool`, and `Vec<T> where T: ArgumentType`. It also supports using environment variables as arguments; in the event of a conflict, command-line.
+Sarge is a small, opinionated arguments parser. It uses clever techniques to
+make parsing arguments as quick and painless as possible. It has zero
+dependencies, reducing cruft and therefore build times. Here are some
+differences with the industry standard, [clap](https://crates.io/crates/clap):
 
-Arguments are registered with an `ArgumentParser`, and when you're ready, `ArgumentParser::parse`. Parsing does two things: it sets the value of each argument, and returns a `Vec<String>` of the values not associated with an argument. Arguments can be created easily via the `tag::` functions and registered with `ArgumentParser::add`, returning an `ArgumentRef`.
+- No dependencies
+- No proc macros
+    - Provides a very powerful *regular* macro through the feature `macros`
+- Supports environment variables
+- Provides a cleaner builder interface
+- Isn't a jack-of-all-trades
+    - Doesn't support weird syntaxes
+    - Focuses on sensible defaults to minimize effort for everyone involved
+    - Doesn't provide help messages, completions, etc.
+    - Doesn't support nested arguments
+- Isn't run by committee
+    - Not out of disdain, but there's only one maintainer, so...
+- Isn't a giant project
+    - Those can be great, but can also be overkill
+- Has first-class support for custom argument types
 
-Arguments can be retrieved with `ArgumentRef::get(self)`. Boolean arguments will always be `Ok(true | false)`; other arguments may be `Err(_)` if they failed to parse, or were not provided.
+One or more of the above might be a deal-breaker. That's okay! I made sarge so
+that there was a good, light alternative to clap. Use whichever one suits
+your use-case. I personally use sarge for all my projects, because they're all
+small; this forces me to be active in maintaining it.
 
-Example:
+Here's a giant example using all the bells and whistles
 
 <details>
 
 ```rust
 use sarge::prelude::*;
 
+// This is a normal, non-proc macro. That means sarge is still
+// zero-dependency! The syntax may seem a little strange at first, but it
+// should help greatly when defining your CLI interface.
+sarge! {
+    // This is the name of our struct.
+    Args,
+
+    // These are our arguments. Each will have a long variant matching the
+    // field name one-to-one, with one exception: all underscores are
+    // replaced by dashes at compile-time.
+    //
+    // The hashtags denote the arg 'wrapper'. No wrapper means it will be
+    // unwrapped; if the argument wasn't passed, or it failed to parse, this
+    // will panic. Thankfully, `bool` arguments are immune to both, and
+    // `String` arguments are immune to the latter.
+
+    first: bool, // true if `--first` is passed, false otherwise
+
+    // If you want a short variant (e.g. '-s'), you can specify one with a char
+    // literal before the name (but after the wrapper, if any):
+    's' second: String,
+
+    // You can also specify an environment variable counterpart. If an argument
+    // has values for both an environment variable and a CLI argument, the CLI
+    // argument takes precedence.
+    @ENV_VAR env_var: i32,
+
+    // `#err` makes the argument an `Option<Result<T, _>>`.
+    #err foo: f32,
+
+    // `#ok` makes the argument an `Option<T>`, discarding any parsing errors.
+    #ok bar: f64,
+
+    // Here's every feature in one argument:
+    // an `Option<Result<T, _>>` that can be set via `-b`, `--baz`, or `BAZ=`.
+    #err 'b' @BAZ baz: Vec<u64>,
+}
+
+// Some utility macros to make this example less verbose.
+
+macro_rules! create_args {
+    ( $( $arg:expr ),* $(,)? ) => {
+        [ $( $arg.to_string(), )* ]
+    };
+}
+
+macro_rules! create_env {
+    ( $( $name:expr, $val:expr ),* $(,)? ) => {
+        [ $( ($name.to_string(), $val.to_string()), )* ]
+    };
+}
+
 fn main() {
-    let parser = ArgumentParser::new();
-
-    // These are borrows on your parser. Don't worry, `ArgumentParser`
-    // uses thread-safe interior mutability to make this ergonomic.
-    let help = parser.add(tag::both('h', "help")); // This matches either `-h` or `--help`.
-    let number = parser.add::<i64>(tag::long("number"));  // This matches only `--number`.
-
-    // These are the fake arguments for our program. Note that any
-    // of these could include spaces, but shells generally break
-    // arguments on non-quoted whitespace.
-    let arguments = vec![
-        "my_program".to_string(),
-        "abc".to_string(),
-        "--number".to_string(),
-        "123".to_string(),
-        "def".to_string(),
+    let args = create_args![
+        "test",           // The name of the executable.
+        "--first",
+        "-s", "Hello, World!",
+        "--bar=badnum",   // The syntax `--arg=val` is valid for long tags.
+        "foobar",         // This value isn't part of an argument.
+        "--baz", "1,2,3", // Remember this value...
     ];
 
-    // In your application, you would probably use `ArgumentParser::parse()`.
-    let remainder = parser.parse_cli(&arguments, false).expect("Failed to parse arguments");
+    let env = create_env![
+        "ENV_VAR", "42",
+        "BAZ", "4,5,6",   // ...and this one.
+    ];
 
-    assert_eq!(
-        help.get(), // Consumes `help`; use `get_keep` to retain the reference.
-        Ok(false)   // Since we compare it to a `bool`, Rust knows that `help`
-    );              // must also be a `bool`.
+    // Normally, you would use `::parse()` here. However, since this gets run
+    // as a test, we'll manually pass the arguments along.
+    let (args, remainder) = Args::parse_provided(&args, env.into_iter())
+        .expect("Failed to parse arguments");
 
-    assert_eq!(
-        number.get(),
-        Ok(123)     // However, since 123 could be either an `i64` *or* a `u64`,
-    );              // we had to specify `::<i64>` on `parser.add`.
+    assert_eq!(remainder, vec!["foobar"]);
 
-    assert_eq!(
-        remainder,  // Remainder is all arguments not paired with a tag, in order.
-        vec![
-            "abc".to_string(),
-            "def".to_string(),
-        ]
-    );
-
-    assert_eq!(
-        parser.binary(), // The first argument, if any.
-        Some("my_program".to_string())
-    );
+    assert!(args.first);
+    assert_eq!(args.second, "Hello, World!");
+    assert_eq!(args.env_var, 42);
+    assert_eq!(args.foo, None);
+    assert_eq!(args.bar, None);
+    assert_eq!(args.baz, Some(Ok(vec![1, 2, 3])));
 }
 ```
 
@@ -108,10 +164,10 @@ fn main() {
     // `parser.parse()` would automatically use `std::env::vars`.
     parser.parse_provided(&cli_args, env_args).unwrap();
 
-    assert_eq!(just_env.get(), Ok(false));
+    assert_eq!(just_env.get(), Some(Ok(false)));
 
     // Since the CLI argument was given, it uses that instead.
-    assert_eq!(both.get(), Ok(123i64));
+    assert_eq!(both.get(), Some(Ok(123i64)));
 }
 ```
 
@@ -125,43 +181,31 @@ example (taken from `src/test/custom_type.rs`):
 <details>
 
 ```rust
-use sarge::{prelude::*, custom::*};
+use std::convert::Infallible;
+use sarge::{prelude::*, ArgumentType, ArgResult};
 
 #[derive(Debug, PartialEq, Eq)]
 struct MyCustomType(Vec<String>);
 
 impl ArgumentType for MyCustomType {
     /// This gets returned from `ArgumentRef::get` in the event
-    /// of a failed parse. This must be `Debug`.
-    type Error = ();
-
-    /// What type of input. For custom types, you want
-    /// an `ArgumentValue::String`.
-    fn arg_type() -> ArgumentValueType {
-        ArgumentValueType::String
-    }
+    /// of a failed parse.
+    type Error = Infallible;
 
     /// Do your parsing here. This just splits on spaces.
-    fn from_value(val: ArgumentValue) -> Result<Self, Self::Error> {
-        if let ArgumentValue::String(val) = val {
-            Ok(Self(val.split(' ').map(|s| s.to_string()).collect()))
-        } else {
-            Err(())
-        }
-    }
-
-    /// In the event the argument wasn't given a value, this
-    /// will be called to determine if there should be a default
-    /// value. If you omit this, it defaults to `None`.
-    fn default_value() -> Option<Self> {
-        // Here, we return an empty vector.
-        Some(MyCustomType(Vec::new()))
+    /// If the argument was passed without a value, `val == None`.
+    fn from_value(val: Option<&str>) -> ArgResult<Self> {
+        Some(Ok(Self(
+            val?.split(' ')
+                .map(|s| s.to_string())
+                .collect()
+        )))
     }
 }
 
 fn main() {
     let parser = ArgumentParser::new();
-    let my_argument = parser.add::<MyCustomType>(tag::long("myarg"));
+    let my_argument = parser.add(tag::long("myarg"));
 
     let arguments = [
         "custom_type_test".to_string(),
@@ -173,15 +217,13 @@ fn main() {
 
     assert_eq!(
         my_argument.get(),
-        Ok(
-            MyCustomType(
-                vec![
-                    "Hello".to_string(),
-                    "World".to_string(),
-                    "!".to_string(),
-                ]
-            )
-        )
+        Some(Ok(MyCustomType(
+            vec![
+                "Hello".to_string(),
+                "World".to_string(),
+                "!".to_string(),
+            ]
+        )))
     );
 }
 ```

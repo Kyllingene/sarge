@@ -1,9 +1,9 @@
 //! All interfaces for handling argument types.
 
-use std::error::Error;
-use std::fmt::{Debug, Display};
 use std::num::{ParseIntError, ParseFloatError};
 use std::convert::Infallible;
+
+pub type ArgResult<T> = Option<Result<T, <T as ArgumentType>::Error>>;
 
 /// A type that can be used as an argument.
 /// Implemented for `bool`, `i64`, `u64`, `f64`,
@@ -12,6 +12,9 @@ use std::convert::Infallible;
 /// You can implement this for your own types! It's essentially the same as
 /// [`FromStr`], with one crucial difference: you can specify a default value
 /// (for when the argument wasn't provided) via [`default_value`].
+///
+/// If your type doesn't consume any values, such as `bool`, set `CONSUMES` to
+/// false. Otherwise it defaults to true.
 ///
 /// The reason this isn't just `FromStr + Default` is because types like `i32`
 /// implement `Default`, but few people want 0 whenever their user doesn't pass
@@ -23,9 +26,14 @@ pub trait ArgumentType: Sized {
     /// A parsing error.
     type Error;
 
+    /// Whether or not this type consumes any arguments.
+    const CONSUMES: bool = true;
+
     /// Perform parsing on the value.
+    ///
+    /// If the argument was given without a value, `val` is None.
     #[allow(clippy::missing_errors_doc)]
-    fn from_value(val: &str) -> Result<Self, Self::Error>;
+    fn from_value(val: Option<&str>) -> ArgResult<Self>;
 
     /// If no value was given, what the default should be, if any.
     /// This defaults to `None`.
@@ -40,8 +48,8 @@ macro_rules! impl_intrinsics {
         impl ArgumentType for $typ {
             type Error = $err;
 
-            fn from_value(val: &str) -> Result<Self, Self::Error> {
-                val.parse()
+            fn from_value(val: Option<&str>) -> ArgResult<Self> {
+                val.map(|val| val.parse())
             }
 
             $(
@@ -57,19 +65,24 @@ macro_rules! impl_intrinsics {
 impl_intrinsics! {
     i64, ParseIntError;
     u64, ParseIntError;
+    i32, ParseIntError;
+    u32, ParseIntError;
     f64, ParseFloatError;
+    f32, ParseFloatError;
     String, Infallible;
 }
 
 impl ArgumentType for bool {
     type Error = Infallible;
 
-    fn from_value(val: &str) -> Result<Self, Self::Error> {
-        Ok(if ["true", "1", "t"].contains(&val) {
-            true
+    const CONSUMES: bool = false;
+
+    fn from_value(val: Option<&str>) -> ArgResult<Self> {
+        Some(Ok(if let Some(val) = val {
+            ["true", "1", "t"].contains(&val)
         } else {
-            false
-        })
+            true
+        }))
     }
 
     fn default_value() -> Option<Self> {
@@ -80,15 +93,18 @@ impl ArgumentType for bool {
 impl<T: ArgumentType> ArgumentType for Vec<T> {
     type Error = T::Error;
 
-    fn from_value(val: &str) -> Result<Self, Self::Error> {
-        let bits = val.split(',');
+    fn from_value(val: Option<&str>) -> ArgResult<Self> {
+        let bits = val?.split(',');
         let mut values = Vec::new();
 
         for bit in bits {
-            values.push(T::from_value(bit)?);
+            values.push(match T::from_value(Some(bit))? {
+                Ok(t) => t,
+                Err(e) => return Some(Err(e)),
+            });
         }
 
-        Ok(values)
+        Some(Ok(values))
     }
 }
 
