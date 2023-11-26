@@ -1,4 +1,4 @@
-//! The [`sarge!`] macro and all it's helper utilities.
+#![doc(hidden)]
 
 #[doc(hidden)]
 pub mod const_exprs;
@@ -56,12 +56,11 @@ macro_rules! __var_tag {
     };
 }
 
-#[macro_export]
 /// A macro to quickly define your CLI interface with struct-like syntax.
 ///
 /// The syntax looks like this:
 ///
-/// ```ignore
+/// ```plain
 /// sarge! {
 ///     StructName,
 ///     [fields...]
@@ -69,7 +68,7 @@ macro_rules! __var_tag {
 /// ```
 ///
 /// Each field has the following form:
-/// ```ignore
+/// ```plain
 ///     [#MARKER] [SHORT_FORM] [@ENV_FORM] long_form: type,
 /// ```
 ///
@@ -78,7 +77,7 @@ macro_rules! __var_tag {
 /// You can specify the type of each argument by prepending a "wrapper" marker,
 /// like so:
 ///
-/// ```ignore
+/// ```plain
 ///     #ok name: type,
 /// ```
 ///
@@ -99,7 +98,7 @@ macro_rules! __var_tag {
 /// To specify a short form for your argument, place a character literal after
 /// your wrapper marker (if any), like so:
 ///
-/// ```ignore
+/// ```plain
 ///     #ok 'a' name: type,
 /// ```
 ///
@@ -113,7 +112,7 @@ macro_rules! __var_tag {
 /// To specify an environment variable form, place the name preceded by an `@`
 /// symbol after your short form (if any), like so:
 ///
-/// ```ignore
+/// ```plain
 ///     #ok 'a' @ENV_FORM name: type,
 /// ```
 ///
@@ -201,6 +200,7 @@ macro_rules! __var_tag {
 ///     assert_eq!(args.baz, Some(Ok(vec![1, 2, 3])));
 /// }
 /// ```
+#[macro_export]
 macro_rules! sarge {
     ( $v:vis $name:ident, $( $( # $spec:ident )? $( $short:literal )? $( @ $env:ident )? $av:vis $long:ident : $typ:ty ),* $(,)? ) => {
         $v struct $name {
