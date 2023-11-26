@@ -38,7 +38,7 @@ struct InternalArgument {
 #[derive(Clone, Debug)]
 /// The results of [`ArgumentReader::parse`]. Used both for retrieving
 /// [`ArgumentRef`]s and for accessing the
-/// [remainder](Arguments.remainder).
+/// [remainder](Arguments::remainder) of the input arguments.
 ///
 /// `Arguments` implements `Deref<Target = [String]>`, so you can treat it
 /// like a `&[String]`.
