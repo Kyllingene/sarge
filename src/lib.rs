@@ -164,9 +164,14 @@ impl ArgumentReader {
     /// If any arguments fail to parse their values, this
     /// will forward that error. Otherwise, see
     /// [`ArgParseError`] for a list of all possible errors.
-    pub fn parse_provided<K: AsRef<str>, V: AsRef<str>, I: IntoIterator<Item = (K, V)>>(
+    pub fn parse_provided<
+        A: AsRef<str>,
+        K: AsRef<str>,
+        V: AsRef<str>,
+        I: IntoIterator<Item = (K, V)>,
+    >(
         mut self,
-        cli: &[String],
+        cli: &[A],
         env: I,
     ) -> Result<Arguments, ArgParseError> {
         self.parse_env(env);
@@ -204,8 +209,8 @@ impl ArgumentReader {
     /// # Errors
     ///
     /// See [`parse`](ArgumentReader::parse) for details.
-    fn parse_cli(mut self, args: &[String]) -> Result<Arguments, ArgParseError> {
-        let mut args = args.iter().peekable();
+    fn parse_cli<A: AsRef<str>>(mut self, args: &[A]) -> Result<Arguments, ArgParseError> {
+        let mut args = args.iter().peekable().map(|arg| arg.as_ref());
         let mut remainder = Vec::new();
 
         while let Some(arg) = args.next() {
@@ -225,7 +230,7 @@ impl ArgumentReader {
 
                 let val = if arg.consumes {
                     if val.is_none() {
-                        args.next().cloned()
+                        args.next().map(str::to_string)
                     } else {
                         val.map(str::to_string)
                     }
@@ -252,7 +257,7 @@ impl ArgumentReader {
 
                         let next = if arg.consumes {
                             consumed = true;
-                            args.next().cloned()
+                            args.next().map(str::to_string)
                         } else {
                             None
                         };
@@ -261,7 +266,7 @@ impl ArgumentReader {
                     }
                 }
             } else {
-                remainder.push(arg.clone());
+                remainder.push(arg.to_string());
             }
         }
 

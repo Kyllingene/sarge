@@ -135,7 +135,7 @@ fn basic_env_var() {
     let args = create_env!["CONFIG_DIR", "/cfg"];
 
     let args = parser
-        .parse_provided(&[], args)
+        .parse_provided(&[] as &[String], args)
         .expect("Failed to parse environment");
 
     assert_eq!(cfg.get(&args), Some(Ok("/cfg".to_string())));
@@ -152,7 +152,7 @@ fn many_env_vars() {
     let args = create_env!["CONFIG_DIR", "/cfg", "SILENT", "0", "THREADS", "16",];
 
     let args = parser
-        .parse_provided(&[], args)
+        .parse_provided(&[] as &[String], args)
         .expect("Failed to parse environment");
 
     assert_eq!(cfg.get(&args), Some(Ok("/cfg".to_string())));
