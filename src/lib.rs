@@ -164,7 +164,7 @@ impl ArgumentReader {
     /// If any arguments fail to parse their values, this
     /// will forward that error. Otherwise, see
     /// [`ArgParseError`] for a list of all possible errors.
-    pub fn parse_provided<I: IntoIterator<Item = (String, String)>>(
+    pub fn parse_provided<K: AsRef<str>, V: AsRef<str>, I: IntoIterator<Item = (K, V)>>(
         mut self,
         cli: &[String],
         env: I,
@@ -174,7 +174,7 @@ impl ArgumentReader {
     }
 
     /// Parse the provided arguments as environment variables.
-    fn parse_env<I: IntoIterator<Item = (String, String)>>(&mut self, args: I) {
+    fn parse_env<K: AsRef<str>, V: AsRef<str>, I: IntoIterator<Item = (K, V)>>(&mut self, args: I) {
         let mut env_args: Vec<_> = self
             .args
             .iter_mut()
@@ -183,12 +183,13 @@ impl ArgumentReader {
 
         if !env_args.is_empty() {
             for (key, val) in args {
-                let key_ref = &key;
+                let key_ref = key.as_ref();
+                let val = val.as_ref();
                 if let Some(arg) = env_args
                     .iter_mut()
                     .find(|arg| arg.tag.env.as_ref().is_some_and(|env| env == key_ref))
                 {
-                    arg.val = Some(Some(val));
+                    arg.val = Some(Some(val.to_string()));
                 }
             }
         }
