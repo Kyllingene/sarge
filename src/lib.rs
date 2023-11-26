@@ -10,7 +10,7 @@ pub mod prelude;
 
 use std::env;
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex};
+use std::ops::Deref;
 
 #[cfg(feature = "macros")]
 pub mod macros;
@@ -35,17 +35,64 @@ struct InternalArgument {
     val: Option<Option<String>>,
 }
 
-/// A reference to an argument. Use this to
-/// retrieve the value of an argument.
-pub struct ArgumentRef<'a, T: ArgumentType> {
-    parser: &'a ArgumentParser,
-    i: usize,
-    _marker: PhantomData<T>,
+#[derive(Clone, Debug)]
+/// The results of [`ArgumentReader::parse`]. Used both for retrieving
+/// [`ArgumentRef`]s and for accessing the
+/// [remainder](Arguments.remainder).
+///
+/// `Arguments` implements `Deref<Target = [String]>`, so you can treat it
+/// like a `&[String]`.
+pub struct Arguments {
+    args: Vec<InternalArgument>,
+    remainder: Vec<String>,
 }
 
-impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
-    /// Retrieve the value of the argument.
-    /// Consumes the `ArgumentRef`.
+impl AsRef<[String]> for Arguments {
+    fn as_ref(&self) -> &[String] {
+        self.remainder.as_slice()
+    }
+}
+
+// TODO: should there be AsRef AND Deref AND From?
+impl Deref for Arguments {
+    type Target = [String];
+
+    fn deref(&self) -> &Self::Target {
+        self.remainder.as_slice()
+    }
+}
+
+impl From<Arguments> for Vec<String> {
+    fn from(args: Arguments) -> Vec<String> {
+        args.remainder
+    }
+}
+
+impl Arguments {
+    /// All the CLI arguments that didn't get parsed as part of an argument.
+    ///
+    /// `Arguments` implements `Deref<Target = [String]>`, so you can also just
+    /// treat it like a `&[String]`. This is just to give you an explicit way
+    /// to do so.
+    pub fn remainder(&self) -> &[String] {
+        self
+    }
+
+    pub(crate) fn get_arg(&self, i: usize) -> &InternalArgument {
+        &self.args[i]
+    }
+}
+
+/// An internal tag to an argument. Use this to retrieve the value of an
+/// argument from an [`Arguments`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ArgumentRef<T: ArgumentType> {
+    i: usize,
+    _marker: PhantomData<fn() -> T>,
+}
+
+impl<T: ArgumentType> ArgumentRef<T> {
+    /// Retrieve the value of the argument from an [`Arguments`].
     ///
     /// # Errors
     ///
@@ -55,21 +102,8 @@ impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
     /// returns `None`.
     ///
     /// For `String` and `bool`, this can never fail.
-    pub fn get(self) -> Option<Result<T, T::Error>> {
-        self.get_keep()
-    }
-
-    /// Retrieve the value of the argument.
-    /// Does not consume the `ArgumentRef`.
-    ///
-    /// # Errors
-    ///
-    /// See [`get`](ArgumentRef::get) for possible errors.
-    #[allow(clippy::missing_panics_doc)]
-    pub fn get_keep(&self) -> ArgResult<T> {
-        let args = self.parser.args.lock().unwrap();
-
-        if let Some(val) = &args[self.i].val {
+    pub fn get(&self, args: &Arguments) -> ArgResult<T> {
+        if let Some(val) = &args.get_arg(self.i).val {
             T::from_value(val.as_deref())
         } else {
             T::default_value().map(Ok)
@@ -77,53 +111,39 @@ impl<'a, T: ArgumentType> ArgumentRef<'a, T> {
     }
 }
 
-/// The structure that actually parses all your
-/// arguments. Use [`ArgumentParser::add`] to
-/// register arguments and get [`ArgumentRef`]s.
+/// The structure that actually reads all your arguments.
 ///
-/// Internally, the parser is a shambling heap of
-/// `Arc<Mutex<HeapAllocatedValue>>`. This is to
-/// enable the current API in a thread-safe manner.
-/// In the future, there may be a single-threaded
-/// feature that disables the extra synchronization
-/// primitives, at the risk of possible memory
-/// unsafety.
+/// Use [`ArgumentReader::add`] to register arguments and get [`ArgumentRef`]s.
+/// Then, use <code>[ArgumentReader::parse]{_cli,_env,_provided}</code> to get
+/// [`Arguments`], which contains the results of parsing. Finally, you can use
+/// [`ArgumentRef::get`] to retrieve the values of your arguments.
 #[derive(Debug, Clone, Default)]
-pub struct ArgumentParser {
-    args: Arc<Mutex<Vec<InternalArgument>>>,
-    binary: Arc<Mutex<Option<String>>>,
+#[allow(clippy::doc_markdown)]
+pub struct ArgumentReader {
+    args: Vec<InternalArgument>,
 }
 
-impl ArgumentParser {
-    /// Returns an empty [`ArgumentParser`].
+impl ArgumentReader {
+    /// Returns an empty [`ArgumentReader`].
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Adds an argument to the parser.
-    #[allow(clippy::missing_panics_doc)]
-    pub fn add<T: ArgumentType>(&self, tag: Full) -> ArgumentRef<T> {
+    pub fn add<T: ArgumentType>(&mut self, tag: Full) -> ArgumentRef<T> {
         let arg = InternalArgument {
             tag,
             consumes: T::CONSUMES,
             val: None,
         };
 
-        let mut args = self.args.lock().unwrap();
-        let i = args.len();
-        args.push(arg);
+        let i = self.args.len();
+        self.args.push(arg);
 
         ArgumentRef {
-            parser: self,
             i,
             _marker: PhantomData,
         }
-    }
-
-    /// Retrieves the binary, if any.
-    #[allow(clippy::missing_panics_doc)]
-    pub fn binary(&self) -> Option<String> {
-        self.binary.lock().unwrap().clone()
     }
 
     /// Parse arguments from `std::env::{args,vars}`.
@@ -133,7 +153,7 @@ impl ArgumentParser {
     /// If any arguments fail to parse their values, this
     /// will forward that error. Otherwise, see
     /// [`ArgParseError`] for a list of all possible errors.
-    pub fn parse(&self) -> Result<Vec<String>, ArgParseError> {
+    pub fn parse(self) -> Result<Arguments, ArgParseError> {
         self.parse_provided(env::args().collect::<Vec<_>>().as_slice(), env::vars())
     }
 
@@ -141,59 +161,37 @@ impl ArgumentParser {
     ///
     /// # Errors
     ///
-    /// See [`parse`](ArgumentParser::parse) for details.
-    pub fn parse_provided<I: Iterator<Item = (String, String)>>(
-        &self,
+    /// If any arguments fail to parse their values, this
+    /// will forward that error. Otherwise, see
+    /// [`ArgParseError`] for a list of all possible errors.
+    pub fn parse_provided<I: IntoIterator<Item = (String, String)>>(
+        mut self,
         cli: &[String],
         env: I,
-    ) -> Result<Vec<String>, ArgParseError> {
-        self.parse_env(env, true)?;
-        self.parse_cli(cli, false)
+    ) -> Result<Arguments, ArgParseError> {
+        self.parse_env(env);
+        self.parse_cli(cli)
     }
 
-    /// Parse the provided arguments as if they were environment variables.
-    ///
-    /// If `reset == true`, clears the values of all arguments beforehand.
-    /// You probably want to leave this at `false`, unless you're re-using
-    /// your parser.
-    ///
-    /// # Errors
-    ///
-    /// See [`parse`](ArgumentParser::parse) for details.
-    #[allow(clippy::missing_panics_doc)]
-    pub fn parse_env<I: Iterator<Item = (String, String)>>(
-        &self,
-        args: I,
-        reset: bool,
-    ) -> Result<(), ArgParseError> {
-        let mut env_args = self.args.lock().unwrap();
-
-        if reset {
-            for arg in env_args.iter_mut() {
-                arg.val = None;
-            }
-        }
-
-        let mut env_args: Vec<_> = env_args
+    /// Parse the provided arguments as environment variables.
+    fn parse_env<I: IntoIterator<Item = (String, String)>>(&mut self, args: I) {
+        let mut env_args: Vec<_> = self
+            .args
             .iter_mut()
             .filter(|arg| arg.tag.has_env())
             .collect();
 
-        if env_args.is_empty() {
-            return Ok(());
-        }
-
-        for (key, val) in args {
-            let key_ref = &key;
-            if let Some(arg) = env_args
-                .iter_mut()
-                .find(|arg| arg.tag.env.as_ref().is_some_and(|env| env == key_ref))
-            {
-                arg.val = Some(Some(val));
+        if !env_args.is_empty() {
+            for (key, val) in args {
+                let key_ref = &key;
+                if let Some(arg) = env_args
+                    .iter_mut()
+                    .find(|arg| arg.tag.env.as_ref().is_some_and(|env| env == key_ref))
+                {
+                    arg.val = Some(Some(val));
+                }
             }
         }
-
-        Ok(())
     }
 
     /// Parses the provided arguments as if they were from the CLI.
@@ -204,19 +202,10 @@ impl ArgumentParser {
     ///
     /// # Errors
     ///
-    /// See [`parse`](ArgumentParser::parse) for details.
-    #[allow(clippy::missing_panics_doc)]
-    pub fn parse_cli(&self, args: &[String], reset: bool) -> Result<Vec<String>, ArgParseError> {
+    /// See [`parse`](ArgumentReader::parse) for details.
+    fn parse_cli(mut self, args: &[String]) -> Result<Arguments, ArgParseError> {
         let mut args = args.iter().peekable();
-        *self.binary.lock().unwrap() = args.next().cloned();
-
         let mut remainder = Vec::new();
-
-        if reset {
-            for arg in self.args.lock().unwrap().iter_mut() {
-                arg.val = None;
-            }
-        }
 
         while let Some(arg) = args.next() {
             if let Some(mut long) = arg.strip_prefix("--") {
@@ -227,8 +216,8 @@ impl ArgumentParser {
                     None
                 };
 
-                let mut pre_args = self.args.lock().unwrap();
-                let arg = pre_args
+                let arg = self
+                    .args
                     .iter_mut()
                     .find(|arg| arg.tag.matches_long(long))
                     .ok_or(ArgParseError::UnknownFlag(long.to_string()))?;
@@ -249,9 +238,9 @@ impl ArgumentParser {
                     remainder.push(String::from("-"));
                 } else {
                     let mut consumed = false;
-                    let mut pre_args = self.args.lock().unwrap();
                     for short in shorts.chars() {
-                        let arg = pre_args
+                        let arg = self
+                            .args
                             .iter_mut()
                             .find(|arg| arg.tag.matches_short(short))
                             .ok_or(ArgParseError::UnknownFlag(short.to_string()))?;
@@ -275,6 +264,9 @@ impl ArgumentParser {
             }
         }
 
-        Ok(remainder)
+        Ok(Arguments {
+            args: self.args,
+            remainder,
+        })
     }
 }

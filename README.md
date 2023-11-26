@@ -43,8 +43,6 @@ small; this forces me to be active in maintaining it.
 - Supports environment variables
 - Custom argument kinds
     - Simply impl a trait and it works like a builtin
-- Thread safety when using the builder 
-    - N/A when using the struct macro
 - The following builtin argument types:
     - `bool`
     - `i8/i16/i32/i64`
@@ -139,7 +137,7 @@ macro_rules! create_env {
 
 fn main() {
     let args = create_args![
-        "test",           // The name of the executable.
+        "test",           // Usually the name of the executable.
         "--first",
         "-s", "Hello, World!",
         "--bar=badnum",   // The syntax `--arg=val` is valid for long tags.
@@ -157,7 +155,7 @@ fn main() {
     let (args, remainder) = Args::parse_provided(&args, env.into_iter())
         .expect("Failed to parse arguments");
 
-    assert_eq!(remainder, vec!["foobar"]);
+    assert_eq!(remainder, vec!["test", "foobar"]);
 
     assert!(args.first);
     assert_eq!(args.second, "Hello, World!");
@@ -185,7 +183,7 @@ Here's a quick example:
 use sarge::prelude::*;
 
 fn main() {
-    let parser = ArgumentParser::new();
+    let mut parser = ArgumentReader::new();
 
     // This can only be specified via environment variable.
     let just_env = parser.add(tag::env("JUST_ENV"));
@@ -210,12 +208,18 @@ fn main() {
     ].into_iter();
 
     // `parser.parse()` would automatically use `std::env::vars`.
-    parser.parse_provided(&cli_args, env_args).unwrap();
+    let args = parser.parse_provided(&cli_args, env_args).unwrap();
 
-    assert_eq!(just_env.get(), Some(Ok(false)));
+    // `args` has the type `Arguments`, which contains two things:
+    // - The CLI arguments that weren't part of a tagged argument
+    // - The tagged arguments and their values
+    //
+    // To get a value from an `ArgumentRef`, use `.get(&Arguments)`:
+
+    assert_eq!(just_env.get(&args), Some(Ok(false)));
 
     // Since the CLI argument was given, it uses that instead.
-    assert_eq!(both.get(), Some(Ok(123i64)));
+    assert_eq!(both.get(&args), Some(Ok(123i64)));
 }
 ```
 
@@ -251,20 +255,23 @@ impl ArgumentType for MyCustomType {
     }
 }
 
-fn main() {
-    let parser = ArgumentParser::new();
-    let my_argument = parser.add(tag::long("myarg"));
+sarge! {
+    Args,
 
+    #err my_argument: MyCustomType,
+}
+
+fn main() {
     let arguments = [
         "custom_type_test".to_string(),
-        "--myarg".to_string(),
+        "--my-argument".to_string(),
         "Hello World !".to_string(),
     ];
 
-    let _ = parser.parse_cli(&arguments, false).expect("failed to parse arguments");
+    let (args, _) = Args::parse_provided(&arguments, None.into_iter()).expect("failed to parse arguments");
 
     assert_eq!(
-        my_argument.get(),
+        args.my_argument,
         Some(Ok(MyCustomType(
             vec![
                 "Hello".to_string(),

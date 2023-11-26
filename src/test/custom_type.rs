@@ -15,7 +15,7 @@ impl ArgumentType for MyCustomType {
 
 #[test]
 fn custom_type() {
-    let parser = ArgumentParser::new();
+    let mut parser = ArgumentReader::new();
     let my_argument = parser.add(tag::long("myarg"));
 
     let arguments = [
@@ -24,12 +24,12 @@ fn custom_type() {
         "Hello World !".to_string(),
     ];
 
-    let _ = parser
-        .parse_cli(&arguments, false)
+    let args = parser
+        .parse_cli(&arguments)
         .expect("failed to parse arguments");
 
     assert_eq!(
-        my_argument.get(),
+        my_argument.get(&args),
         Some(Ok(MyCustomType(vec![
             "Hello".to_string(),
             "World".to_string(),

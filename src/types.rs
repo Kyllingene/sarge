@@ -33,7 +33,7 @@ pub trait ArgumentType: Sized {
 
     /// Perform parsing on the value.
     ///
-    /// If the argument was given without a value, `val` is None.
+    /// If the argument doesn't take any input, `val` is None.
     #[allow(clippy::missing_errors_doc)]
     fn from_value(val: Option<&str>) -> ArgResult<Self>;
 

@@ -6,17 +6,17 @@ pub mod const_exprs;
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __parse_arg {
-    ( err => $parser:expr, $name:ident ) => {
-        let $name = $name.get();
+    ( err => $args:expr, $name:ident ) => {
+        let $name = $name.get(&$args);
     };
 
-    ( ok => $parser:expr, $name:ident ) => {
-        let $name = $name.get().map(|a| a.ok()).flatten();
+    ( ok => $args:expr, $name:ident ) => {
+        let $name = $name.get(&$args).map(|a| a.ok()).flatten();
     };
 
-    ( => $parser:expr, $name:ident ) => {
+    ( => $args:expr, $name:ident ) => {
         let $name = $name
-            .get()
+            .get(&$args)
             .expect("Tried to unwrap argument that wasn't passed")
             .expect("Tried to unwrap argument that failed to parse");
     };
@@ -173,7 +173,7 @@ macro_rules! __var_tag {
 ///
 /// fn main() {
 ///     let args = create_args![
-///         "test",           // The name of the executable.
+///         "test",           // Usually the name of the executable.
 ///         "--first",
 ///         "-s", "Hello, World!",
 ///         "--bar=badnum",   // The syntax `--arg=val` is valid for long tags.
@@ -191,7 +191,7 @@ macro_rules! __var_tag {
 ///     let (args, remainder) = Args::parse_provided(&args, env.into_iter())
 ///         .expect("Failed to parse arguments");
 ///
-///     assert_eq!(remainder, vec!["foobar"]);
+///     assert_eq!(remainder, vec!["test", "foobar"]);
 ///
 ///     assert!(args.first);
 ///     assert_eq!(args.second, "Hello, World!");
@@ -274,7 +274,7 @@ macro_rules! sarge {
                 > where
                     I: std::iter::Iterator<Item = (std::string::String, std::string::String)>
             {
-                let parser = $crate::ArgumentParser::new();
+                let mut parser = $crate::ArgumentReader::new();
 
                 $(
                     let $long = parser.add::<$typ>(
@@ -282,17 +282,17 @@ macro_rules! sarge {
                     );
                 )*
 
-                let remainder = parser.parse_provided(cli, env)?;
+                let args = parser.parse_provided(cli, env)?;
 
                 $(
-                    $crate::__parse_arg!($($spec)? => parser, $long);
+                    $crate::__parse_arg!($($spec)? => args, $long);
                 )*
 
                 let me = Self {$(
                     $long,
                 )*};
 
-                Ok((me, remainder))
+                Ok((me, args.into()))
             }
         }
     };
