@@ -10,9 +10,9 @@ dependencies, reducing cruft and therefore build times. Here are some
 differences with the industry standard, [clap](https://crates.io/crates/clap):
 
 - No dependencies
-    - Leads to small size: `232KiB` compared to clap's `5.4MiB` 
+    - Leads to small size: `256KiB` compared to clap's `5.4MiB`\*
       (shallow clone of git repository | `du -h`)
-    - Leads to fast builds: `0.64s` to clap's `19.97s`, clean build
+    - Leads to fast builds: `0.46s` to clap's `19.97s`, clean build\*
       (times on my old laptop over cellular)
 - No proc macros
     - Provides a powerful *regular* macro through the default feature `macros`
@@ -28,6 +28,9 @@ differences with the industry standard, [clap](https://crates.io/crates/clap):
 - Isn't a giant project
     - Those can be great, but can also be overkill
 - Has first-class support for custom argument types
+
+\**Disclaimer:* these numbers might not be perfectly up-to-date, but there
+shouldn't be any major changes on sarge's side.
 
 One or more of the above might be a deal-breaker. That's okay! I made sarge so
 that there was a good, light alternative to clap. Use whichever one suits
