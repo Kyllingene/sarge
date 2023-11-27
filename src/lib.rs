@@ -210,7 +210,10 @@ impl ArgumentReader {
     /// # Errors
     ///
     /// See [`parse`](ArgumentReader::parse) for details.
-    fn parse_cli<A: AsRef<str>, IA: IntoIterator<Item = A>>(mut self, args: IA) -> Result<Arguments, ArgParseError> {
+    fn parse_cli<A: AsRef<str>, IA: IntoIterator<Item = A>>(
+        mut self,
+        args: IA,
+    ) -> Result<Arguments, ArgParseError> {
         fn tostring<S: AsRef<str>>(arg: S) -> String {
             <S as AsRef<str>>::as_ref(&arg).to_string()
         }

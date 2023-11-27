@@ -168,8 +168,8 @@ macro_rules! __var_tag {
 ///     ];
 ///
 ///     let env = [
-///         "ENV_VAR", "42",
-///         "BAZ", "4,5,6",   // ...and this one.
+///         ("ENV_VAR", "42"),
+///         ("BAZ", "4,5,6"), // ...and this one.
 ///     ];
 ///
 ///     // Normally, you would use `::parse()` here. However, since this gets run
