@@ -1,6 +1,5 @@
 #![doc(hidden)]
 
-#[doc(hidden)]
 pub mod const_exprs;
 
 #[macro_export]
