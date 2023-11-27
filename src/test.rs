@@ -5,41 +5,27 @@ mod custom_type;
 #[cfg(feature = "macros")]
 mod macros;
 
-#[allow(unused)]
-macro_rules! create_args {
-    ( $( $arg:expr ),* $(,)? ) => {
-        [ $( $arg.to_string(), )* ]
-    };
-}
-
-#[allow(unused)]
-macro_rules! create_env {
-    ( $( $name:expr, $val:expr ),* $(,)? ) => {
-        [ $( ($name.to_string(), $val.to_string()), )* ]
-    };
-}
-
 #[test]
 fn basic_arg_test() {
     let mut parser = ArgumentReader::new();
     let name = parser.add(tag::long("name"));
     let help = parser.add(tag::short('h'));
 
-    let args = create_args!["test", "--name", "Jonah"];
+    let args = ["test", "--name", "Jonah"];
 
     let args = parser
         .clone()
-        .parse_cli(&args)
+        .parse_cli(args)
         .expect("Failed to parse first arguments");
 
     assert_eq!(args.remainder(), &["test".to_string()]);
     assert_eq!(name.get(&args), Some(Ok("Jonah".to_string())));
     assert_eq!(help.get(&args), Some(Ok(false)));
 
-    let args = create_args!["test", "-h", "Jonah"];
+    let args = ["test", "-h", "Jonah"];
 
     let args = parser
-        .parse_cli(&args)
+        .parse_cli(args)
         .expect("Failed to parse second arguments");
 
     assert_eq!(args.remainder(), &["test", "Jonah"]);
@@ -55,8 +41,8 @@ fn multiple_short() {
     let c = parser.add(tag::short('c'));
     let d = parser.add(tag::short('d'));
 
-    let args = create_args!["test", "-abc"];
-    let args = parser.parse_cli(&args).expect("Failed to parse args");
+    let args = ["test", "-abc"];
+    let args = parser.parse_cli(args).expect("Failed to parse args");
 
     assert_eq!(a.get(&args), Some(Ok(true)));
     assert_eq!(b.get(&args), Some(Ok(true)));
@@ -72,9 +58,9 @@ fn multiple_short_vals() {
     let c = parser.add(tag::short('c'));
     let d = parser.add::<i64>(tag::short('d'));
 
-    let args = create_args!["test", "-abc", "test"];
+    let args = ["test", "-abc", "test"];
 
-    let args = parser.parse_cli(&args).expect("Failed to parse args");
+    let args = parser.parse_cli(args).expect("Failed to parse args");
 
     assert_eq!(a.get(&args), Some(Ok(true)));
     assert_eq!(b.get(&args), Some(Ok(true)));
@@ -91,9 +77,9 @@ fn multiple_short_vals_consume_same_value() {
     let _c = parser.add::<String>(tag::short('c'));
     let _d = parser.add::<String>(tag::short('d'));
 
-    let args = create_args!["test", "-abcd", "test"];
+    let args = ["test", "-abcd", "test"];
 
-    parser.parse_cli(&args).unwrap();
+    parser.parse_cli(args).unwrap();
 }
 
 #[test]
@@ -101,9 +87,9 @@ fn list_type() {
     let mut parser = ArgumentReader::new();
     let list = parser.add(tag::long("list"));
 
-    let args = create_args!["test", "--list", "Hello,World,!",];
+    let args = ["test", "--list", "Hello,World,!"];
 
-    let args = parser.parse_cli(&args).expect("failed to parse arguments");
+    let args = parser.parse_cli(args).expect("failed to parse arguments");
 
     assert_eq!(
         list.get(&args),
@@ -120,9 +106,9 @@ fn int_list_type() {
     let mut parser = ArgumentReader::new();
     let list = parser.add(tag::long("list"));
 
-    let args = create_args!["test", "--list", "123,456,789",];
+    let args = ["test", "--list", "123,456,789"];
 
-    let args = parser.parse_cli(&args).expect("failed to parse arguments");
+    let args = parser.parse_cli(args).expect("failed to parse arguments");
 
     assert_eq!(list.get(&args), Some(Ok(vec![123i64, 456, 789,])));
 }
@@ -132,7 +118,7 @@ fn basic_env_var() {
     let mut parser = ArgumentReader::new();
     let cfg = parser.add(tag::env("CONFIG_DIR"));
 
-    let args = create_env!["CONFIG_DIR", "/cfg"];
+    let args = [("CONFIG_DIR", "/cfg")];
 
     let args = parser
         .parse_provided(&[] as &[String], args)
@@ -149,7 +135,7 @@ fn many_env_vars() {
     let threads = parser.add(tag::env("THREADS"));
     let unused = parser.add::<i64>(tag::env("UNUSED"));
 
-    let args = create_env!["CONFIG_DIR", "/cfg", "SILENT", "0", "THREADS", "16",];
+    let args = [("CONFIG_DIR", "/cfg"), ("SILENT", "0"), ("THREADS", "16")];
 
     let args = parser
         .parse_provided(&[] as &[String], args)

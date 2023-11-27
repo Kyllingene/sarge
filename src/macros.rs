@@ -1,6 +1,5 @@
 #![doc(hidden)]
 
-#[doc(hidden)]
 pub mod const_exprs;
 
 #[macro_export]
@@ -158,20 +157,8 @@ macro_rules! __var_tag {
 ///     #err 'b' @BAZ baz: Vec<u64>,
 /// }
 ///
-/// # macro_rules! create_args {
-/// #     ( $( $arg:expr ),* $(,)? ) => {
-/// #         [ $( $arg.to_string(), )* ]
-/// #     };
-/// # }
-/// #
-/// # macro_rules! create_env {
-/// #     ( $( $name:expr, $val:expr ),* $(,)? ) => {
-/// #         [ $( ($name.to_string(), $val.to_string()), )* ]
-/// #     };
-/// # }
-///
 /// fn main() {
-///     let args = create_args![
+///     let args = [
 ///         "test",           // Usually the name of the executable.
 ///         "--first",
 ///         "-s", "Hello, World!",
@@ -180,14 +167,14 @@ macro_rules! __var_tag {
 ///         "--baz", "1,2,3", // Remember this value...
 ///     ];
 ///
-///     let env = create_env![
-///         "ENV_VAR", "42",
-///         "BAZ", "4,5,6",   // ...and this one.
+///     let env = [
+///         ("ENV_VAR", "42"),
+///         ("BAZ", "4,5,6"), // ...and this one.
 ///     ];
 ///
 ///     // Normally, you would use `::parse()` here. However, since this gets run
 ///     // as a test, we'll manually pass the arguments along.
-///     let (args, remainder) = Args::parse_provided(&args, env.into_iter())
+///     let (args, remainder) = Args::parse_provided(args, env)
 ///         .expect("Failed to parse arguments");
 ///
 ///     assert_eq!(remainder, vec!["test", "foobar"]);
@@ -218,7 +205,7 @@ macro_rules! sarge {
             #[allow(unused)]
             pub fn parse() -> std::result::Result<(Self, std::vec::Vec<std::string::String>), ArgParseError> {
                 Self::parse_provided(
-                    std::env::args().collect::<std::vec::Vec<_>>().as_slice(),
+                    std::env::args(),
                     std::env::vars(),
                 )
             }
@@ -233,12 +220,14 @@ macro_rules! sarge {
             ///
             /// See [`parse`] for details.
             #[allow(unused)]
-            pub fn parse_env<I: std::iter::Iterator<Item = (std::string::String, std::string::String)>>(
-                args: I,
-            ) -> std::result::Result<Self, $crate::ArgParseError> {
+            pub fn parse_env<
+                K: std::convert::AsRef<str>,
+                V: std::convert::AsRef<str>,
+                I: std::iter::IntoIterator<Item = (K, V)>,
+            >(env: I) -> std::result::Result<Self, $crate::ArgParseError> {
                 Ok(Self::parse_provided(
-                    &[],
-                    args
+                    std::option::Option::<&'static str>::None,
+                    env,
                 )?.0)
             }
 
@@ -253,10 +242,13 @@ macro_rules! sarge {
             /// See [`parse`] for details.
             #[allow(clippy::missing_panics_doc)]
             #[allow(unused)]
-            pub fn parse_cli(args: &[std::string::String]) -> std::result::Result<(Self, std::vec::Vec<std::string::String>), $crate::ArgParseError> {
+            pub fn parse_cli<
+                A: std::convert::AsRef<str>,
+                I: std::iter::IntoIterator<Item = A>,
+            >(args: I) -> std::result::Result<(Self, std::vec::Vec<std::string::String>), $crate::ArgParseError> {
                 Self::parse_provided(
                     args,
-                    None.into_iter()
+                    std::option::Option::<(&'static str, &'static str)>::None,
                 )
             }
 
@@ -266,13 +258,18 @@ macro_rules! sarge {
             ///
             /// See [`parse`] for details.
             #[allow(unused)]
-            pub fn parse_provided<I>(
-                cli: &[std::string::String],
-                env: I,
+            pub fn parse_provided<
+                A: std::convert::AsRef<str>,
+                IA: std::iter::IntoIterator<Item = A>,
+                K: std::convert::AsRef<str>,
+                V: std::convert::AsRef<str>,
+                IE: std::iter::IntoIterator<Item = (K, V)>,
+            >(
+                cli: IA,
+                env: IE,
             ) -> std::result::Result<
                     (Self, std::vec::Vec<std::string::String>), $crate::ArgParseError
-                > where
-                    I: std::iter::Iterator<Item = (std::string::String, std::string::String)>
+                >
             {
                 let mut parser = $crate::ArgumentReader::new();
 

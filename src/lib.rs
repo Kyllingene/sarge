@@ -154,7 +154,7 @@ impl ArgumentReader {
     /// will forward that error. Otherwise, see
     /// [`ArgParseError`] for a list of all possible errors.
     pub fn parse(self) -> Result<Arguments, ArgParseError> {
-        self.parse_provided(env::args().collect::<Vec<_>>().as_slice(), env::vars())
+        self.parse_provided(env::args(), env::vars())
     }
 
     /// Parse from the provided environment variables and CLI arguments.
@@ -166,13 +166,14 @@ impl ArgumentReader {
     /// [`ArgParseError`] for a list of all possible errors.
     pub fn parse_provided<
         A: AsRef<str>,
+        IA: IntoIterator<Item = A>,
         K: AsRef<str>,
         V: AsRef<str>,
-        I: IntoIterator<Item = (K, V)>,
+        IE: IntoIterator<Item = (K, V)>,
     >(
         mut self,
-        cli: &[A],
-        env: I,
+        cli: IA,
+        env: IE,
     ) -> Result<Arguments, ArgParseError> {
         self.parse_env(env);
         self.parse_cli(cli)
@@ -209,11 +210,19 @@ impl ArgumentReader {
     /// # Errors
     ///
     /// See [`parse`](ArgumentReader::parse) for details.
-    fn parse_cli<A: AsRef<str>>(mut self, args: &[A]) -> Result<Arguments, ArgParseError> {
-        let mut args = args.iter().peekable().map(|arg| arg.as_ref());
+    fn parse_cli<A: AsRef<str>, IA: IntoIterator<Item = A>>(
+        mut self,
+        args: IA,
+    ) -> Result<Arguments, ArgParseError> {
+        fn tostring<S: AsRef<str>>(arg: S) -> String {
+            <S as AsRef<str>>::as_ref(&arg).to_string()
+        }
+
+        let mut args = args.into_iter().peekable();
         let mut remainder = Vec::new();
 
         while let Some(arg) = args.next() {
+            let arg = arg.as_ref();
             if let Some(mut long) = arg.strip_prefix("--") {
                 let val = if let Some((left, right)) = long.split_once('=') {
                     long = left;
@@ -230,9 +239,9 @@ impl ArgumentReader {
 
                 let val = if arg.consumes {
                     if val.is_none() {
-                        args.next().map(str::to_string)
+                        args.next().map(tostring)
                     } else {
-                        val.map(str::to_string)
+                        val.map(tostring)
                     }
                 } else {
                     None
@@ -257,7 +266,7 @@ impl ArgumentReader {
 
                         let next = if arg.consumes {
                             consumed = true;
-                            args.next().map(str::to_string)
+                            args.next().map(|arg| arg.as_ref().to_string())
                         } else {
                             None
                         };

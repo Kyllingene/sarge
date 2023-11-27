@@ -34,6 +34,8 @@ pub fn env<E: ToString>(e: E) -> Full {
 
 /// An argument name that may have either a CLI component,
 /// environment variable component, or both.
+///
+/// Create with [`short`], [`long`], [`both`], and [`env`](env()).
 #[derive(Debug, Clone)]
 pub struct Full {
     pub(crate) cli: Option<Cli>,

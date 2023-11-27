@@ -175,8 +175,6 @@ fn main() {
 
 Sarge also supports using environment variables as arguments. This is automatically
 done when you call `parse`, or you can use `parse_env` to pass the variables yourself.
-It takes an `Iterator<Item = (String, String)>` as a reciever, the same type
-`std::env::args()` returns.
 
 Here's a quick example:
 
@@ -271,7 +269,7 @@ fn main() {
         "Hello World !".to_string(),
     ];
 
-    let (args, _) = Args::parse_provided(&arguments, None.into_iter()).expect("failed to parse arguments");
+    let (args, _) = Args::parse_provided(&arguments, None::<(&str, &str)>).expect("failed to parse arguments");
 
     assert_eq!(
         args.my_argument,
