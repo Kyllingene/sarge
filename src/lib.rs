@@ -154,7 +154,7 @@ impl ArgumentReader {
     /// will forward that error. Otherwise, see
     /// [`ArgParseError`] for a list of all possible errors.
     pub fn parse(self) -> Result<Arguments, ArgParseError> {
-        self.parse_provided(env::args().collect::<Vec<_>>().as_slice(), env::vars())
+        self.parse_provided(env::args(), env::vars())
     }
 
     /// Parse from the provided environment variables and CLI arguments.

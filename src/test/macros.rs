@@ -1,19 +1,5 @@
 use crate::prelude::*;
 
-#[allow(unused)]
-macro_rules! create_args {
-    ( $( $arg:expr ),* $(,)? ) => {
-        [ $( $arg.to_string(), )* ]
-    };
-}
-
-#[allow(unused)]
-macro_rules! create_env {
-    ( $( $name:expr, $val:expr ),* $(,)? ) => {
-        [ $( ($name.to_string(), $val.to_string()), )* ]
-    };
-}
-
 sarge! {
     Args,
 
@@ -33,7 +19,7 @@ sarge! {
 
 #[test]
 fn test_macros() {
-    let (args, _) = Args::parse_cli(&create_args![
+    let (args, _) = Args::parse_cli([
         "test",
         "--first-arg",
         "--third",
