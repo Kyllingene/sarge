@@ -29,7 +29,7 @@ fn basic_arg_test() {
 
     let args = parser
         .clone()
-        .parse_cli(&args)
+        .parse_cli(args)
         .expect("Failed to parse first arguments");
 
     assert_eq!(args.remainder(), &["test".to_string()]);
@@ -39,7 +39,7 @@ fn basic_arg_test() {
     let args = create_args!["test", "-h", "Jonah"];
 
     let args = parser
-        .parse_cli(&args)
+        .parse_cli(args)
         .expect("Failed to parse second arguments");
 
     assert_eq!(args.remainder(), &["test", "Jonah"]);
@@ -56,7 +56,7 @@ fn multiple_short() {
     let d = parser.add(tag::short('d'));
 
     let args = create_args!["test", "-abc"];
-    let args = parser.parse_cli(&args).expect("Failed to parse args");
+    let args = parser.parse_cli(args).expect("Failed to parse args");
 
     assert_eq!(a.get(&args), Some(Ok(true)));
     assert_eq!(b.get(&args), Some(Ok(true)));
@@ -74,7 +74,7 @@ fn multiple_short_vals() {
 
     let args = create_args!["test", "-abc", "test"];
 
-    let args = parser.parse_cli(&args).expect("Failed to parse args");
+    let args = parser.parse_cli(args).expect("Failed to parse args");
 
     assert_eq!(a.get(&args), Some(Ok(true)));
     assert_eq!(b.get(&args), Some(Ok(true)));
@@ -93,7 +93,7 @@ fn multiple_short_vals_consume_same_value() {
 
     let args = create_args!["test", "-abcd", "test"];
 
-    parser.parse_cli(&args).unwrap();
+    parser.parse_cli(args).unwrap();
 }
 
 #[test]
@@ -103,7 +103,7 @@ fn list_type() {
 
     let args = create_args!["test", "--list", "Hello,World,!",];
 
-    let args = parser.parse_cli(&args).expect("failed to parse arguments");
+    let args = parser.parse_cli(args).expect("failed to parse arguments");
 
     assert_eq!(
         list.get(&args),
@@ -122,7 +122,7 @@ fn int_list_type() {
 
     let args = create_args!["test", "--list", "123,456,789",];
 
-    let args = parser.parse_cli(&args).expect("failed to parse arguments");
+    let args = parser.parse_cli(args).expect("failed to parse arguments");
 
     assert_eq!(list.get(&args), Some(Ok(vec![123i64, 456, 789,])));
 }
@@ -160,3 +160,4 @@ fn many_env_vars() {
     assert_eq!(threads.get(&args), Some(Ok(16u64)));
     assert_eq!(unused.get(&args), None);
 }
+

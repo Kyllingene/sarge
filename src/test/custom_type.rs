@@ -25,7 +25,7 @@ fn custom_type() {
     ];
 
     let args = parser
-        .parse_cli(&arguments)
+        .parse_cli(arguments)
         .expect("failed to parse arguments");
 
     assert_eq!(

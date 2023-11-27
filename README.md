@@ -175,7 +175,7 @@ fn main() {
 
 Sarge also supports using environment variables as arguments. This is automatically
 done when you call `parse`, or you can use `parse_env` to pass the variables yourself.
-It takes an `Iterator<Item = (String, String)>` as a reciever, the same type
+It takes an `IntoIterator<Item = (AsRef<str>, AsRef<str>)>`, the same type
 `std::env::args()` returns.
 
 Here's a quick example:
