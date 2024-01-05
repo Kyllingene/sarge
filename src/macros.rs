@@ -203,7 +203,7 @@ macro_rules! sarge {
             /// will forward that error. Otherwise, see
             /// [`ArgParseError`] for a list of all possible errors.
             #[allow(unused)]
-            pub fn parse() -> std::result::Result<(Self, std::vec::Vec<std::string::String>), ArgParseError> {
+            pub fn parse() -> std::result::Result<(Self, std::vec::Vec<std::string::String>), $crate::ArgParseError> {
                 Self::parse_provided(
                     std::env::args(),
                     std::env::vars(),

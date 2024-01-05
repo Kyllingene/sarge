@@ -21,7 +21,7 @@ differences with the industry standard, [clap](https://crates.io/crates/clap):
     - Doesn't support weird syntaxes
     - All struct-style arguments have to have a long form
     - Focuses on sensible defaults to minimize effort for everyone involved
-    - Doesn't provide help messages, completions, etc.
+<!--    - Doesn't provide help messages, completions, etc. -->
     - Doesn't support nested arguments
 - Isn't run by committee
     - Not out of disdain, but there's only one maintainer, so...
@@ -44,6 +44,7 @@ small; this forces me to be active in maintaining it.
     - Used to be the only option, so it's been fleshed out
 - Non-proc macro for building a CLI interface
 - Supports environment variables
+- Supports help-prompt generation via the `help` feature
 - Custom argument kinds
     - Simply impl a trait and it works like a builtin
 - The following builtin argument types:

@@ -1,6 +1,7 @@
 //! Everything surrounding [tags](`Full`).
 
-use std::{fmt::Display, hash::Hash};
+use std::fmt::Display;
+use crate::doc::{ArgFmt, Doc};
 
 /// Create a tag with just a short variant.
 #[inline]
@@ -29,6 +30,9 @@ pub fn env<E: ToString>(e: E) -> Full {
     Full {
         cli: None,
         env: Some(e.to_string()),
+
+        #[cfg(feature = "help")]
+        doc: None,
     }
 }
 
@@ -40,6 +44,9 @@ pub fn env<E: ToString>(e: E) -> Full {
 pub struct Full {
     pub(crate) cli: Option<Cli>,
     pub(crate) env: Option<String>,
+
+    #[cfg(feature = "help")]
+    pub(crate) doc: Option<Doc>,
 }
 
 impl Full {
@@ -58,6 +65,15 @@ impl Full {
         self
     }
 
+    /// Add documentation to the argument, to be used when generating a help
+    /// dialogue.
+    #[cfg(feature = "help")]
+    #[must_use]
+    pub fn doc(mut self, doc: Doc) -> Self {
+        self.doc = Some(doc);
+        self
+    }
+
     /// Returns whether or not this tag has a CLI component.
     pub fn has_cli(&self) -> bool {
         self.cli.is_some()
@@ -66,6 +82,19 @@ impl Full {
     /// Returns whether or not this tag has an environment variable component.
     pub fn has_env(&self) -> bool {
         self.env.is_some()
+    }
+
+    /// Returns whether or not this argument has documentation.
+    #[cfg(feature = "help")]
+    pub fn has_doc(&self) -> bool {
+        self.doc.is_some()
+    }
+
+    #[cfg(feature = "help")]
+    pub(crate) fn gen_doc(&self) -> Option<(ArgFmt, String)> {
+        let doc = self.doc.as_ref()?;
+
+        todo!("generating help messages is not yet implemented");
     }
 
     /// Returns whether or not the CLI component matches the given tag.
@@ -102,18 +131,9 @@ impl From<Cli> for Full {
         Self {
             cli: Some(tag),
             env: None,
-        }
-    }
-}
 
-impl Hash for Full {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        if let Some(tag) = &self.cli {
-            core::mem::discriminant(tag).hash(state);
-        }
-
-        if let Some(arg) = &self.env {
-            arg.hash(state);
+            #[cfg(feature = "help")]
+            doc: None,
         }
     }
 }
@@ -141,6 +161,9 @@ impl Cli {
         Full {
             cli: Some(self),
             env: Some(env),
+
+            #[cfg(feature = "help")]
+            doc: None,
         }
     }
 
@@ -196,12 +219,6 @@ impl PartialEq for Cli {
                 Self::Both(o1, o2) => (s1 == o1) || (s2 == o2),
             },
         }
-    }
-}
-
-impl Hash for Cli {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        core::mem::discriminant(self).hash(state);
     }
 }
 
