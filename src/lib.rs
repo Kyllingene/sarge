@@ -15,9 +15,6 @@ use std::ops::Deref;
 #[cfg(feature = "macros")]
 pub mod macros;
 
-#[cfg(feature = "help")]
-mod doc;
-
 pub mod tag;
 use tag::Full;
 
