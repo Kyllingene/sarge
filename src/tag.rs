@@ -65,13 +65,20 @@ impl Full {
         self
     }
 
-    /// Add documentation to the argument.
+    /// Add documentation to the argument. If `doc.is_empty()`, instead
+    /// removes any documentation.
     ///
     /// Only available on feature `help`.
     #[must_use]
     pub fn doc<S: ToString>(mut self, doc: S) -> Self {
-        self.doc = Some(doc.to_string());
-        self
+        let doc = doc.to_string();
+        if doc.is_empty() {
+            self.doc = None;
+            self
+        } else {
+            self.doc = Some(doc);
+            self
+        }
     }
 
     /// Returns whether or not this tag has a CLI component.
