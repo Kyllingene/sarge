@@ -16,10 +16,14 @@ use std::ops::Deref;
 pub mod macros;
 
 pub mod tag;
+use help::DocParams;
 use tag::Full;
 
 mod error;
 pub use error::ArgParseError;
+
+#[cfg(feature = "help")]
+mod help;
 
 mod types;
 pub use types::{ArgResult, ArgumentType};
@@ -121,12 +125,52 @@ impl<T: ArgumentType> ArgumentRef<T> {
 #[allow(clippy::doc_markdown)]
 pub struct ArgumentReader {
     args: Vec<InternalArgument>,
+
+    /// Program-level documentation.
+    ///
+    /// Only available on feature `help`.
+    pub doc: Option<String>,
 }
 
 impl ArgumentReader {
     /// Returns an empty [`ArgumentReader`].
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Prints help for all the arguments.
+    ///
+    /// Only available on feature `help`.
+    ///
+    /// # Panics
+    ///
+    /// If the name of the executable could not be found, panics.
+    #[cfg(feature = "help")]
+    pub fn print_help(&self) {
+        println!(
+            "{} [options...] <arguments...>",
+            option_env!("CARGO_BIN_NAME")
+                .map(String::from)
+                .or_else(|| std::env::current_exe().ok().map(|s| s
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned()))
+                .expect("failed to get executable"),
+        );
+
+        if let Some(doc) = &self.doc {
+            println!("{doc}\n");
+        }
+
+        let mut params = DocParams::default();
+        for arg in &self.args {
+            help::update_params(&mut params, &arg.tag);
+        }
+
+        for arg in &self.args {
+            println!("{}", help::render_argument(&arg.tag, params));
+        }
     }
 
     /// Adds an argument to the parser.

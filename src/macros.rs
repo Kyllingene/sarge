@@ -40,18 +40,22 @@ macro_rules! __arg_typ {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __var_tag {
-    ( $long:ident ) => {
+    ( $long:ident $( $doc:literal )? ) => {
         $crate::tag::long($crate::__replace!(stringify!($long), '_', '-'))
+            $( .doc($doc) )?
     };
-    ( $short:literal $long:ident ) => {
+    ( $short:literal $long:ident $( $doc:literal )? ) => {
         $crate::tag::both($short, $crate::__replace!(stringify!($long), '_', '-'))
+            $( .doc($doc) )?
     };
-    ( $long:ident $env:ident ) => {
+    ( $long:ident $env:ident $( $doc:literal )? ) => {
         $crate::tag::long($crate::__replace!(stringify!($long), '_', '-')).env(stringify!($env))
+            $( .doc($doc) )?
     };
-    ( $short:literal $long:ident $env:ident ) => {
+    ( $short:literal $long:ident $env:ident $( $doc:literal )? ) => {
         $crate::tag::both($short, $crate::__replace!(stringify!($long), '_', '-'))
             .env(stringify!($env))
+            $( .doc($doc) )?
     };
 }
 
@@ -68,8 +72,22 @@ macro_rules! __var_tag {
 ///
 /// Each field has the following form:
 /// ```plain
+///     [[DOCS]]
 ///     [#MARKER] [SHORT_FORM] [@ENV_FORM] long_form: type,
 /// ```
+///
+/// # Documentation
+///
+/// You may specify documentation to apply to arguments. On feature `help`,
+/// this will also be specified in `print_help`. Example:
+///
+/// ```plain
+///     ["Documentation for argument"]
+///     (rest of argument)
+/// ```
+///
+/// Whether or not you add documentation, the basic form of the argument will
+/// still be provided in the help message.
 ///
 /// # Wrapper markers
 ///
@@ -135,6 +153,7 @@ macro_rules! __var_tag {
 ///     // will panic. Thankfully, `bool` arguments are immune to both, and
 ///     // `String` arguments are immune to the latter.
 ///
+///     ["Hello, World!"]
 ///     first: bool, // true if `--first` is passed, false otherwise
 ///
 ///     // If you want a short variant (e.g. '-s'), you can specify one with a char
@@ -189,12 +208,42 @@ macro_rules! __var_tag {
 /// ```
 #[macro_export]
 macro_rules! sarge {
-    ( $v:vis $name:ident, $( $( # $spec:ident )? $( $short:literal )? $( @ $env:ident )? $av:vis $long:ident : $typ:ty ),* $(,)? ) => {
+    (
+        $( $doc:literal )?
+        $v:vis $name:ident, $(
+            $( [ $adoc:literal ] )?
+            $( # $spec:ident )?
+            $( $short:literal )?
+            $( @ $env:ident )?
+            $av:vis
+            $long:ident : $typ:ty
+        ),* $(,)?
+    ) => {
         $v struct $name {
-            $( $av $long: $crate::__arg_typ!($($spec,)? $typ), )*
+            $(
+                $(#[doc = $adoc])?
+                $av $long: $crate::__arg_typ!($($spec,)? $typ),
+            )*
         }
 
         impl $name {
+            /// Prints help for all the arguments.
+            ///
+            /// Only available on feature `help`.
+            #[allow(unused)]
+            pub fn print_help() {
+                let mut parser = $crate::ArgumentReader::new();
+                $( parser.doc = Some(std::string::String::from($doc)); )?
+
+                $(
+                    parser.add::<$typ>(
+                        $crate::__var_tag!($( $short )? $long $( $env )? $( $adoc )?)
+                    );
+                )*
+
+                parser.print_help();
+            }
+
             /// Parse arguments from `std::env::{args,vars}`.
             ///
             /// # Errors
@@ -275,7 +324,7 @@ macro_rules! sarge {
 
                 $(
                     let $long = parser.add::<$typ>(
-                        $crate::__var_tag!($( $short )? $long $( $env )?)
+                        $crate::__var_tag!($( $short )? $long $( $env )? )
                     );
                 )*
 

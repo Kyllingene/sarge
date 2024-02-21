@@ -29,6 +29,9 @@ pub fn env<E: ToString>(e: E) -> Full {
     Full {
         cli: None,
         env: Some(e.to_string()),
+
+        #[cfg(feature = "help")]
+        doc: None,
     }
 }
 
@@ -40,6 +43,10 @@ pub fn env<E: ToString>(e: E) -> Full {
 pub struct Full {
     pub(crate) cli: Option<Cli>,
     pub(crate) env: Option<String>,
+
+    /// The documentation for this argument.
+    #[cfg(feature = "help")]
+    pub doc: Option<String>,
 }
 
 impl Full {
@@ -55,6 +62,15 @@ impl Full {
     #[allow(clippy::needless_pass_by_value)]
     pub fn env<S: ToString>(mut self, name: S) -> Self {
         self.env = Some(name.to_string());
+        self
+    }
+
+    /// Add documentation to the argument.
+    ///
+    /// Only available on feature `help`.
+    #[must_use]
+    pub fn doc<S: ToString>(mut self, doc: S) -> Self {
+        self.doc = Some(doc.to_string());
         self
     }
 
@@ -102,6 +118,9 @@ impl From<Cli> for Full {
         Self {
             cli: Some(tag),
             env: None,
+
+            #[cfg(feature = "help")]
+            doc: None,
         }
     }
 }
@@ -141,6 +160,9 @@ impl Cli {
         Full {
             cli: Some(self),
             env: Some(env),
+
+            #[cfg(feature = "help")]
+            doc: None,
         }
     }
 
