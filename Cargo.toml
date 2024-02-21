@@ -16,5 +16,15 @@ categories = ["command-line-interface", ]
 # DO NOT add any dependencies!
 
 [features]
-default = ["macros"]
+default = ["help", "macros"]
+help = []
 macros = []
+
+[[example]]
+name = "help"
+required-features = ["help"]
+
+[[example]]
+name = "macros"
+required-features = ["help"]
+

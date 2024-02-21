@@ -29,6 +29,9 @@ pub fn env<E: ToString>(e: E) -> Full {
     Full {
         cli: None,
         env: Some(e.to_string()),
+
+        #[cfg(feature = "help")]
+        doc: None,
     }
 }
 
@@ -40,6 +43,10 @@ pub fn env<E: ToString>(e: E) -> Full {
 pub struct Full {
     pub(crate) cli: Option<Cli>,
     pub(crate) env: Option<String>,
+
+    /// The documentation for this argument.
+    #[cfg(feature = "help")]
+    pub doc: Option<String>,
 }
 
 impl Full {
@@ -56,6 +63,22 @@ impl Full {
     pub fn env<S: ToString>(mut self, name: S) -> Self {
         self.env = Some(name.to_string());
         self
+    }
+
+    /// Add documentation to the argument. If `doc.is_empty()`, instead
+    /// removes any documentation.
+    ///
+    /// Only available on feature `help`.
+    #[must_use]
+    pub fn doc<S: ToString>(mut self, doc: S) -> Self {
+        let doc = doc.to_string();
+        if doc.is_empty() {
+            self.doc = None;
+            self
+        } else {
+            self.doc = Some(doc);
+            self
+        }
     }
 
     /// Returns whether or not this tag has a CLI component.
@@ -102,6 +125,9 @@ impl From<Cli> for Full {
         Self {
             cli: Some(tag),
             env: None,
+
+            #[cfg(feature = "help")]
+            doc: None,
         }
     }
 }
@@ -141,6 +167,9 @@ impl Cli {
         Full {
             cli: Some(self),
             env: Some(env),
+
+            #[cfg(feature = "help")]
+            doc: None,
         }
     }
 
@@ -196,12 +225,6 @@ impl PartialEq for Cli {
                 Self::Both(o1, o2) => (s1 == o1) || (s2 == o2),
             },
         }
-    }
-}
-
-impl Hash for Cli {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        core::mem::discriminant(self).hash(state);
     }
 }
 
