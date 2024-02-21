@@ -199,12 +199,6 @@ impl PartialEq for Cli {
     }
 }
 
-impl Hash for Cli {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        core::mem::discriminant(self).hash(state);
-    }
-}
-
 impl Display for Cli {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
