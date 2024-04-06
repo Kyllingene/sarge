@@ -43,6 +43,7 @@ small; this forces me to be active in maintaining it.
 - First-class "builder" pattern, but better
     - Used to be the only option, so it's been fleshed out
 - Non-proc macro for building a CLI interface
+    - Supports default values
 - Supports environment variables
 - Custom argument kinds
     - Simply impl a trait and it works like a builtin
@@ -62,7 +63,7 @@ small; this forces me to be active in maintaining it.
 - Better code styling
     - Probably remove `clippy::pedantic` and get more fine-grained
 - Better, fuller docs
-    - They're usable, but (like tests) aren't top-priority
+    - I want them to be top-notch
 
 ## Contributing
 
@@ -119,9 +120,9 @@ sarge! {
     // `#ok` makes the argument an `Option<T>`, discarding any parsing errors.
     #ok bar: f64,
 
-    // Here's every feature in one argument:
-    // an `Option<Result<T, _>>` that can be set via `-b`, `--baz`, or `BAZ=`.
-    #err 'b' @BAZ baz: Vec<u64>,
+    // Here's every feature in one argument: a `Result<T, _>` that can be set
+    // via `-b`, `--baz`, or `BAZ=`, and defaults to [1, 2, 3] if not passed.
+    #err 'b' @BAZ baz: Vec<u64> = vec![1, 2, 3],
 }
 
 // Some utility macros to make this example less verbose.
@@ -165,7 +166,7 @@ fn main() {
     assert_eq!(args.env_var, 42);
     assert_eq!(args.foo, None);
     assert_eq!(args.bar, None);
-    assert_eq!(args.baz, Some(Ok(vec![1, 2, 3])));
+    assert_eq!(args.baz, Ok(vec![1, 2, 3]));
 }
 ```
 

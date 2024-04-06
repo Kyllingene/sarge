@@ -6,6 +6,9 @@ use std::num::{ParseFloatError, ParseIntError};
 /// The type returned when retrieving an argument.
 pub type ArgResult<T> = Option<Result<T, <T as ArgumentType>::Error>>;
 
+/// The type returned when retrieving an argument with a default value.
+pub type DefaultedArgResult<T> = Result<T, <T as ArgumentType>::Error>;
+
 /// A type that can be used as an argument.
 /// Implemented for `bool`, `i64`, `u64`, `f64`,
 /// `String`, and `Vec<T: ArgumentType>`.

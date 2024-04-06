@@ -26,7 +26,7 @@ pub use error::ArgParseError;
 mod help;
 
 mod types;
-pub use types::{ArgResult, ArgumentType};
+pub use types::{ArgResult, ArgumentType, DefaultedArgResult};
 
 #[cfg(test)]
 mod test;

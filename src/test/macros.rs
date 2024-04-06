@@ -15,6 +15,12 @@ sarge! {
     // A character before the name (but after the kind) is the short version
     // of the argument, i.e. `-f`
     'f' fourth: f64,
+
+    // You can give values an infallible default:
+    fifth: u32 = 1,
+
+    // ...or keep any errors:
+    #err sixth: u8 = 0,
 }
 
 #[test]
@@ -26,6 +32,8 @@ fn test_macros() {
         "123,456,789",
         "-f",
         "10.11",
+        "--sixth",
+        "256",
     ])
     .expect("failed to parse arguments");
 
@@ -33,4 +41,6 @@ fn test_macros() {
     assert_eq!(args.second, None);
     assert_eq!(args.third, Some(Ok(vec![123, 456, 789])));
     assert_eq!(args.fourth, 10.11);
+    assert_eq!(args.fifth, 1);
+    assert!(args.sixth.is_err());
 }

@@ -5,34 +5,73 @@ pub mod const_exprs;
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __parse_arg {
-    ( err => $args:expr, $name:ident ) => {
+    ( err => $args:expr, $name:ident, ) => {
         let $name = $name.get(&$args);
     };
 
-    ( ok => $args:expr, $name:ident ) => {
+    ( ok => $args:expr, $name:ident, ) => {
         let $name = $name.get(&$args).map(|a| a.ok()).flatten();
     };
 
-    ( => $args:expr, $name:ident ) => {
+    ( => $args:expr, $name:ident, ) => {
         let $name = $name
             .get(&$args)
             .expect("Tried to unwrap argument that wasn't passed")
             .expect("Tried to unwrap argument that failed to parse");
+    };
+
+    ( err => $args:expr, $name:ident, $default:expr ) => {
+        let $name = $name
+            .get(&$args)
+            .unwrap_or_else(|| ::std::result::Result::Ok($default));
+    };
+
+    ( ok => $args:expr, $name:ident, $default:expr ) => {
+        compile_error!(concat!(
+            "cannot have default value for argument `#ok ",
+            stringify!($name),
+            " = ",
+            stringify!($default),
+            "`, only on `#err` or unwrapped arguments",
+        ))
+    };
+
+    ( => $args:expr, $name:ident, $default:expr ) => {
+        let $name = $name
+            .get(&$args)
+            .transpose()
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| $default);
     };
 }
 
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __arg_typ {
-    ( err , $typ:ty ) => {
+    ( $name:ident, err, $typ:ty, ) => {
         $crate::ArgResult<$typ>
     };
 
-    ( ok , $typ:ty ) => {
-        std::option::Option<$typ>
+    ( $name:ident, err, $typ:ty, $default:expr ) => {
+        $crate::DefaultedArgResult<$typ>
     };
 
-    ( $typ:ty ) => {
+    ( $name:ident, ok, $typ:ty, ) => {
+        ::std::option::Option<$typ>
+    };
+
+    ( $name:ident, ok, $typ:ty, $default:expr ) => {
+        compile_error!(concat!(
+            "cannot have default value for argument `#ok ",
+            stringify!($name),
+            " = ",
+            stringify!($default),
+            "`, only on `#err` or unwrapped arguments",
+        ))
+    };
+
+    ( $name:ident, $typ:ty, $( $default:expr )? ) => {
         $typ
     };
 }
@@ -41,21 +80,24 @@ macro_rules! __arg_typ {
 #[doc(hidden)]
 macro_rules! __var_tag {
     ( $long:ident $( $doc:literal )* ) => {
-        $crate::tag::long($crate::__replace!(stringify!($long), '_', '-'))
-            .doc(String::new() $( + "\n" + $doc )*)
+        $crate::tag::long($crate::__replace!(::std::stringify!($long), '_', '-'))
+            .doc(::std::string::String::new() $( + "\n" + $doc )*)
     };
     ( $short:literal $long:ident $( $doc:literal )* ) => {
-        $crate::tag::both($short, $crate::__replace!(stringify!($long), '_', '-'))
-            .doc(String::new() $( + "\n" + $doc )*)
+        $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'))
+            .doc(::std::string::String::new() $( + "\n" + $doc )*)
     };
     ( $long:ident $env:ident $( $doc:literal )* ) => {
-        $crate::tag::long($crate::__replace!(stringify!($long), '_', '-')).env(stringify!($env))
-            .doc(String::new() $( + "\n" + $doc )*)
+        $crate::tag::long(
+            $crate::__replace!(::std::stringify!($long), '_', '-')
+        )
+            .env(::std::stringify!($env))
+            .doc(::std::string::String::new() $( + "\n" + $doc )*)
     };
     ( $short:literal $long:ident $env:ident $( $doc:literal )* ) => {
-        $crate::tag::both($short, $crate::__replace!(stringify!($long), '_', '-'))
-            .env(stringify!($env))
-            .doc(String::new() $( + "\n" + $doc )*)
+        $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'))
+            .env(::std::stringify!($env))
+            .doc(::std::string::String::new() $( + "\n" + $doc )*)
     };
 }
 
@@ -73,7 +115,7 @@ macro_rules! __var_tag {
 /// Each field has the following form:
 /// ```plain
 ///     [> DOCS...]
-///     [#MARKER] [SHORT_FORM] [@ENV_FORM] long_form: type,
+///     [#MARKER] [SHORT_FORM] [@ENV_FORM] long_form: type [= DEFAULT],
 /// ```
 ///
 /// # Documentation
@@ -107,7 +149,7 @@ macro_rules! __var_tag {
 ///
 /// No wrapper means that if the argument wasn't passed, or failed to parse,
 /// trying to parse your arguments will panic. It gives basic error messages,
-/// but this should still be avoided if possible. It is, however, save to use
+/// but this should still be avoided if possible. It is, however, safe to use
 /// this marker on `bool` arguments, since they will default to `false`.
 ///
 /// # Short forms
@@ -135,6 +177,20 @@ macro_rules! __var_tag {
 ///
 /// The name will not be altered in any way, so make sure it's unique and won't
 /// clash with any other common environment variables.
+///
+/// # Defaults
+///
+/// Sometimes, when an argument is left unspecified, you wish to automatically
+/// fill it with a default. This may be done with the following syntax:
+///
+/// ```plain
+///     page: u32 = 1,
+/// ```
+///
+/// This example shows an infallible default, i.e. even if the argument is
+/// passed but fails to parse, it will be defaulted. You may instead desire to
+/// place the default on an `#err` argument, in which case it will become
+/// `Result<T, _>`.
 ///
 /// # Example
 ///
@@ -172,9 +228,12 @@ macro_rules! __var_tag {
 ///     // `#ok` makes the argument an `Option<T>`, discarding any parsing errors.
 ///     #ok bar: f64,
 ///
-///     // Here's every feature in one argument:
+///     // Here's almost every feature in one argument:
 ///     // an `Option<Result<T, _>>` that can be set via `-b`, `--baz`, or `BAZ=`.
 ///     #err 'b' @BAZ baz: Vec<u64>,
+///
+///     // An argument with a default value:
+///     qux: String = "foobar".into(),
 /// }
 ///
 /// fn main() {
@@ -205,6 +264,7 @@ macro_rules! __var_tag {
 ///     assert_eq!(args.foo, None);
 ///     assert_eq!(args.bar, None);
 ///     assert_eq!(args.baz, Some(Ok(vec![1, 2, 3])));
+///     assert_eq!(args.qux, "foobar");
 /// }
 /// ```
 #[macro_export]
@@ -218,12 +278,13 @@ macro_rules! sarge {
             $( @ $env:ident )?
             $av:vis
             $long:ident : $typ:ty
+            $( = $default:expr )?
         ),* $(,)?
     ) => {
         $v struct $name {
             $(
                 $(#[doc = $adoc])*
-                $av $long: $crate::__arg_typ!($($spec,)? $typ),
+                $av $long: $crate::__arg_typ!($long, $( $spec, )? $typ, $( $default )?),
             )*
         }
 
@@ -336,7 +397,7 @@ macro_rules! sarge {
                 let args = parser.parse_provided(cli, env)?;
 
                 $(
-                    $crate::__parse_arg!($($spec)? => args, $long);
+                    $crate::__parse_arg!($( $spec )? => args, $long, $( $default )?);
                 )*
 
                 let me = Self {$(
