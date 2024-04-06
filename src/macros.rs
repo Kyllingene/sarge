@@ -192,6 +192,8 @@ macro_rules! __var_tag {
 /// place the default on an `#err` argument, in which case it will become
 /// `Result<T, _>`.
 ///
+/// You may not place defaults on `#ok` arguments.
+///
 /// # Example
 ///
 /// ```
