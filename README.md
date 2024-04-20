@@ -49,8 +49,8 @@ small; this forces me to be active in maintaining it.
     - Simply impl a trait and it works like a builtin
 - The following builtin argument types:
     - `bool`
-    - `i8/i16/i32/i64`
-    - `u8/u16/u32/u64`
+    - `i8/i16/i32/i64/i128/isize`
+    - `u8/u16/u32/u64/u128/usize`
     - `f32/f64`
     - `String`
     - `Vec<T>` where `T: ArgumentType`

@@ -72,10 +72,14 @@ impl_intrinsics! {
     i16, ParseIntError;
     i32, ParseIntError;
     i64, ParseIntError;
+    i128, ParseIntError;
+    isize, ParseIntError;
     u8, ParseIntError;
     u16, ParseIntError;
     u32, ParseIntError;
     u64, ParseIntError;
+    u128, ParseIntError;
+    usize, ParseIntError;
     f32, ParseFloatError;
     f64, ParseFloatError;
     String, Infallible;
