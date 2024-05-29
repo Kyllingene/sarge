@@ -17,7 +17,7 @@ fn empty(width: Option<NonZeroUsize>) -> String {
 
 /// Returns the padding necessary for continuing doc lines.
 fn doc_newline(params: DocParams) -> String {
-    let mut width = if params.has_short { 6 } else { 0 };
+    let mut width = if params.has_short { 8 } else { 0 };
 
     if let Some(long_width) = params.long_width {
         width += usize::from(long_width) + 1;

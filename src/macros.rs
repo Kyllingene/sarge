@@ -79,26 +79,50 @@ macro_rules! __arg_typ {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __var_tag {
-    ( $long:ident $( $doc:literal )* ) => {
+    ( $long:ident $( $doc:literal )* ) => {{
+        let mut s = ::std::string::String::new();
+        $(
+            s.push_str($doc);
+            s.push('\n');
+        )*
+        s.pop();
         $crate::tag::long($crate::__replace!(::std::stringify!($long), '_', '-'))
-            .doc(::std::string::String::new() $( + "\n" + $doc )*)
-    };
-    ( $short:literal $long:ident $( $doc:literal )* ) => {
+            .doc(s)
+    }};
+    ( $short:literal $long:ident $( $doc:literal )* ) => {{
+        let mut s = ::std::string::String::new();
+        $(
+            s.push_str($doc);
+            s.push('\n');
+        )*
+        s.pop();
         $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'))
-            .doc(::std::string::String::new() $( + "\n" + $doc )*)
-    };
-    ( $long:ident $env:ident $( $doc:literal )* ) => {
+            .doc(s)
+    }};
+    ( $long:ident $env:ident $( $doc:literal )* ) => {{
+        let mut s = ::std::string::String::new();
+        $(
+            s.push_str($doc);
+            s.push('\n');
+        )*
+        s.pop();
         $crate::tag::long(
             $crate::__replace!(::std::stringify!($long), '_', '-')
         )
             .env(::std::stringify!($env))
-            .doc(::std::string::String::new() $( + "\n" + $doc )*)
-    };
-    ( $short:literal $long:ident $env:ident $( $doc:literal )* ) => {
+            .doc(s)
+    }};
+    ( $short:literal $long:ident $env:ident $( $doc:literal )* ) => {{
+        let mut s = ::std::string::String::new();
+        $(
+            s.push_str($doc);
+            s.push('\n');
+        )*
+        s.pop();
         $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'))
             .env(::std::stringify!($env))
-            .doc(::std::string::String::new() $( + "\n" + $doc )*)
-    };
+            .doc(s)
+    }};
 }
 
 /// A macro to quickly define your CLI interface with struct-like syntax.
