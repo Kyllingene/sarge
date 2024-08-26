@@ -16,7 +16,6 @@ use std::ops::Deref;
 pub mod macros;
 
 pub mod tag;
-use help::DocParams;
 use tag::Full;
 
 mod error;
@@ -24,6 +23,8 @@ pub use error::ArgParseError;
 
 #[cfg(feature = "help")]
 mod help;
+#[cfg(feature = "help")]
+use help::DocParams;
 
 mod types;
 pub use types::{ArgResult, ArgumentType, DefaultedArgResult};

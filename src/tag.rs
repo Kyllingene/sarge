@@ -70,6 +70,7 @@ impl Full {
     ///
     /// Only available on feature `help`.
     #[must_use]
+    #[cfg(feature = "help")]
     pub fn doc<S: ToString>(mut self, doc: S) -> Self {
         let doc = doc.to_string();
         if doc.is_empty() {
