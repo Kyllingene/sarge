@@ -4,7 +4,7 @@
 ![license](https://img.shields.io/crates/l/sarge)
 ![version](https://img.shields.io/crates/v/sarge)
 
-Sarge is a small, opinionated arguments parser. It uses clever techniques to
+Sarge is a small, opinionated arguments parser. It tries to
 make parsing arguments as quick and painless as possible. It has zero
 dependencies, reducing cruft and therefore build times. Here are some
 differences with the industry standard, [clap](https://crates.io/crates/clap):
