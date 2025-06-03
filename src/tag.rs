@@ -11,24 +11,24 @@ pub fn short<S: Into<char>>(s: S) -> Full {
 /// Create a tag with just a long variant.
 #[inline]
 #[allow(clippy::needless_pass_by_value)]
-pub fn long<L: ToString>(l: L) -> Full {
-    Full::from(Cli::Long(l.to_string()))
+pub fn long<L: Into<String>>(l: L) -> Full {
+    Full::from(Cli::Long(l.into()))
 }
 
 /// Create a tag with both short and long variants.
 #[inline]
 #[allow(clippy::needless_pass_by_value)]
-pub fn both<S: Into<char>, L: ToString>(s: S, l: L) -> Full {
-    Full::from(Cli::Both(s.into(), l.to_string()))
+pub fn both<S: Into<char>, L: Into<String>>(s: S, l: L) -> Full {
+    Full::from(Cli::Both(s.into(), l.into()))
 }
 
 /// Create an environment variable argument.
 #[inline]
 #[allow(clippy::needless_pass_by_value)]
-pub fn env<E: ToString>(e: E) -> Full {
+pub fn env<E: Into<String>>(e: E) -> Full {
     Full {
         cli: None,
-        env: Some(e.to_string()),
+        env: Some(e.into()),
 
         #[cfg(feature = "help")]
         doc: None,
@@ -60,8 +60,8 @@ impl Full {
     /// Add an environment variable component.
     #[must_use]
     #[allow(clippy::needless_pass_by_value)]
-    pub fn env<S: ToString>(mut self, name: S) -> Self {
-        self.env = Some(name.to_string());
+    pub fn env<S: Into<String>>(mut self, name: S) -> Self {
+        self.env = Some(name.into());
         self
     }
 
@@ -71,8 +71,8 @@ impl Full {
     /// Only available on feature `help`.
     #[must_use]
     #[cfg(feature = "help")]
-    pub fn doc<S: ToString>(mut self, doc: S) -> Self {
-        let doc = doc.to_string();
+    pub fn doc<S: Into<String>>(mut self, doc: S) -> Self {
+        let doc = doc.into();
         if doc.is_empty() {
             self.doc = None;
             self
