@@ -136,7 +136,7 @@ pub struct ArgumentReader {
 impl ArgumentReader {
     /// Returns an empty [`ArgumentReader`].
     pub fn new() -> Self {
-        Self::default()
+        Self { args: Vec::new(), doc: None }
     }
 
     /// Prints help for all the arguments.
