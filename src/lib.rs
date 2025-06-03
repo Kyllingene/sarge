@@ -114,6 +114,14 @@ impl<T: ArgumentType> ArgumentRef<T> {
             T::default_value().map(Ok)
         }
     }
+
+    /// Retrieve the tag of the argument from an [`Arguments`].
+    ///
+    /// Note that this always returns a [`Full`] tag, even when the argument
+    /// wasn't created with one.
+    pub fn tag<'a>(&self, args: &'a Arguments) -> &'a Full {
+        &args.get_arg(self.i).tag
+    }
 }
 
 /// The structure that actually reads all your arguments.
