@@ -27,13 +27,11 @@ macro_rules! __parse_arg {
     };
 
     ( ok => $args:expr, $name:ident, $default:expr ) => {
-        compile_error!(concat!(
-            "cannot have default value for argument `#ok ",
-            stringify!($name),
-            " = ",
-            stringify!($default),
-            "`, only on `#err` or unwrapped arguments",
-        ))
+        let $name = $name
+            .get(&$args)
+            .map(|a| a.ok())
+            .flatten()
+            .or_else(|| $default);
     };
 
     ( => $args:expr, $name:ident, $default:expr ) => {
@@ -62,13 +60,7 @@ macro_rules! __arg_typ {
     };
 
     ( $name:ident, ok, $typ:ty, $default:expr ) => {
-        compile_error!(concat!(
-            "cannot have default value for argument `#ok ",
-            stringify!($name),
-            " = ",
-            stringify!($default),
-            "`, only on `#err` or unwrapped arguments",
-        ))
+        ::std::option::Option<$typ>
     };
 
     ( $name:ident, $typ:ty, $( $default:expr )? ) => {
@@ -216,7 +208,9 @@ macro_rules! __var_tag {
 /// place the default on an `#err` argument, in which case it will become
 /// `Result<T, _>`.
 ///
-/// You may not place defaults on `#ok` arguments.
+/// You may place defaults on `#ok` arguments by providing an `Option<T>`,
+/// typically `Some(default)`. This will be used when the argument is missing
+/// (or fails to parse, since `#ok` treats parsing errors as not passed).
 ///
 /// # Example
 ///
