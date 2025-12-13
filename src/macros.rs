@@ -297,6 +297,46 @@ macro_rules! __var_tag {
 macro_rules! sarge {
     (
         $( > $doc:literal )*
+        $( #[$enum_meta:meta] )+
+        $v:vis $name:ident, $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__struct
+            $( > $doc )*
+            [$($enum_meta)*]
+            $v $name, $($rest)*
+        }
+    };
+
+    (
+        $( > $doc:literal )*
+        [$($enum_meta:meta)*]
+        $v:vis $name:ident, $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__struct
+            $( > $doc )*
+            [$($enum_meta)*]
+            $v $name, $($rest)*
+        }
+    };
+
+    (
+        $( > $doc:literal )*
+        $v:vis $name:ident, $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__struct
+            $( > $doc )*
+            []
+            $v $name, $($rest)*
+        }
+    };
+
+    (
+        @__struct
+        $( > $doc:literal )*
+        [$($enum_meta:meta)*]
         $v:vis $name:ident, $(
             $( > $adoc:literal )*
             $( # $spec:ident )?
@@ -307,6 +347,7 @@ macro_rules! sarge {
             $( = $default:expr )?
         ),* $(,)?
     ) => {
+        $(#[$enum_meta])*
         $v struct $name {
             $(
                 $(#[doc = $adoc])*
@@ -366,7 +407,7 @@ macro_rules! sarge {
                 V: std::convert::AsRef<str>,
                 I: std::iter::IntoIterator<Item = (K, V)>,
             >(env: I) -> std::result::Result<Self, $crate::ArgParseError> {
-                Ok(Self::parse_provided(
+                ::std::result::Result::Ok(Self::parse_provided(
                     std::option::Option::<&'static str>::None,
                     env,
                 )?.0)
@@ -430,7 +471,7 @@ macro_rules! sarge {
                     $long,
                 )*};
 
-                Ok((me, args.into()))
+                ::std::result::Result::Ok((me, args.into()))
             }
         }
     };
