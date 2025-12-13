@@ -350,11 +350,11 @@ macro_rules! sarge {
         }
 
         impl $name {
-            /// Prints help for all the arguments.
+            /// Returns help for all the arguments.
             ///
             /// Only available on feature `help`.
             #[allow(unused)]
-            pub fn print_help() {
+            pub fn help() -> ::std::string::String {
                 let mut parser = $crate::ArgumentReader::new();
                 parser.doc = Some(
                     String::new()
@@ -367,7 +367,15 @@ macro_rules! sarge {
                     );
                 )*
 
-                parser.print_help();
+                parser.help()
+            }
+
+            /// Prints help for all the arguments.
+            ///
+            /// Only available on feature `help`.
+            #[allow(unused)]
+            pub fn print_help() {
+                print!("{}", Self::help());
             }
 
             /// Parse arguments from `std::env::{args,vars}`.

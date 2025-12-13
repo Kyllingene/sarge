@@ -147,6 +147,46 @@ impl ArgumentReader {
         Self { args: Vec::new(), doc: None }
     }
 
+    /// Returns help for all the arguments.
+    ///
+    /// Only available on feature `help`.
+    ///
+    /// # Panics
+    ///
+    /// If the name of the executable could not be found, panics.
+    #[cfg(feature = "help")]
+    pub fn help(&self) -> String {
+        let exe = option_env!("CARGO_BIN_NAME")
+            .map(String::from)
+            .or_else(|| {
+                std::env::current_exe()
+                    .ok()
+                    .and_then(|s| s.file_stem().map(|s| s.to_string_lossy().into_owned()))
+            })
+            .expect("failed to get executable");
+
+        let mut out = String::new();
+        out.push_str(&exe);
+        out.push_str(" [options...] <arguments...>\n");
+
+        if let Some(doc) = &self.doc {
+            out.push_str(doc);
+            out.push_str("\n\n");
+        }
+
+        let mut params = DocParams::default();
+        for arg in &self.args {
+            help::update_params(&mut params, &arg.tag);
+        }
+
+        for arg in &self.args {
+            out.push_str(&help::render_argument(&arg.tag, params));
+            out.push('\n');
+        }
+
+        out
+    }
+
     /// Prints help for all the arguments.
     ///
     /// Only available on feature `help`.
@@ -156,30 +196,7 @@ impl ArgumentReader {
     /// If the name of the executable could not be found, panics.
     #[cfg(feature = "help")]
     pub fn print_help(&self) {
-        println!(
-            "{} [options...] <arguments...>",
-            option_env!("CARGO_BIN_NAME")
-                .map(String::from)
-                .or_else(|| std::env::current_exe().ok().map(|s| s
-                    .file_stem()
-                    .unwrap()
-                    .to_string_lossy()
-                    .into_owned()))
-                .expect("failed to get executable"),
-        );
-
-        if let Some(doc) = &self.doc {
-            println!("{doc}\n");
-        }
-
-        let mut params = DocParams::default();
-        for arg in &self.args {
-            help::update_params(&mut params, &arg.tag);
-        }
-
-        for arg in &self.args {
-            println!("{}", help::render_argument(&arg.tag, params));
-        }
+        print!("{}", self.help());
     }
 
     /// Adds an argument to the parser.
