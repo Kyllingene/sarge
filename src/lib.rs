@@ -29,6 +29,31 @@ use help::DocParams;
 mod types;
 pub use types::{ArgResult, ArgumentType, DefaultedArgResult};
 
+#[doc(hidden)]
+pub trait __SargeDefault<T> {
+    fn __sarge_default(self) -> T;
+}
+
+impl<T> __SargeDefault<T> for T {
+    fn __sarge_default(self) -> T {
+        self
+    }
+}
+
+impl __SargeDefault<String> for &str {
+    fn __sarge_default(self) -> String {
+        self.to_string()
+    }
+}
+
+#[doc(hidden)]
+pub fn __sarge_default<T, D>(d: D) -> T
+where
+    D: __SargeDefault<T>,
+{
+    d.__sarge_default()
+}
+
 #[cfg(test)]
 mod test;
 
@@ -144,7 +169,10 @@ pub struct ArgumentReader {
 impl ArgumentReader {
     /// Returns an empty [`ArgumentReader`].
     pub fn new() -> Self {
-        Self { args: Vec::new(), doc: None }
+        Self {
+            args: Vec::new(),
+            doc: None,
+        }
     }
 
     /// Returns help for all the arguments.

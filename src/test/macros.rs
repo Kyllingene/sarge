@@ -77,8 +77,8 @@ fn struct_attributes_are_applied() {
 
 mod polluted_ok_import {
     use super::anyhow;
-    use anyhow::Ok;
     use crate::prelude::*;
+    use anyhow::Ok;
 
     sarge! {
         PollutedArgs,
@@ -102,13 +102,13 @@ sarge! {
     DefaultArgs,
 
     // Default value (String).
-    socket_addr: String = "127.0.0.1:9912".into(),
+    socket_addr: String = "127.0.0.1:9912",
 
-    // `#ok` default is an Option.
-    #ok 't' target_addr: String = Some("127.0.0.1:9911".into()),
+    // `#ok` default is a plain value; macro wraps it in `Some(...)`.
+    #ok 't' target_addr: String = "127.0.0.1:9911",
 
     // `#ok` default should be used when parsing fails.
-    #ok 'n' num: u32 = Some(42),
+    #ok 'n' num: u32 = 42,
 
     // `#err` default is a plain value (not `Some(Ok(...))`).
     #err 'h' help: bool = false,

@@ -13,7 +13,7 @@ differences with the industry standard, [clap](https://crates.io/crates/clap):
     - Leads to small size: `264KiB` compared to clap's `5.5MiB`\*
       (shallow clone of git repository | `du -h`)
     - Leads to fast builds: `0.4s` to clap's `7s`, clean build\*
-      (times on desktop over decent WiFi)
+      (times on desktop over decent `WiFi`)
 - No proc macros
     - Provides a powerful *regular* macro through the default feature `macros`
 - Provides a cleaner builder-like interface

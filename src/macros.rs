@@ -5,36 +5,59 @@ pub mod const_exprs;
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __parse_arg {
-    ( err => $args:expr, $name:ident, ) => {
+    ( err => $args:expr, $name:ident, $typ:ty, ) => {
         let $name = $name.get(&$args);
     };
 
-    ( ok => $args:expr, $name:ident, ) => {
+    ( ok => $args:expr, $name:ident, $typ:ty, ) => {
         let $name = $name.get(&$args).map(|a| a.ok()).flatten();
     };
 
-    ( => $args:expr, $name:ident, ) => {
+    ( => $args:expr, $name:ident, $typ:ty, ) => {
         let $name = $name
             .get(&$args)
             .expect("Tried to unwrap argument that wasn't passed")
             .expect("Tried to unwrap argument that failed to parse");
     };
 
-    ( err => $args:expr, $name:ident, $default:expr ) => {
+    ( err => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
+        let $name = $name.get(&$args).unwrap_or_else(|| {
+            ::std::result::Result::Ok($crate::__sarge_default::<$typ, _>($default))
+        });
+    };
+
+    ( err => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
         let $name = $name
             .get(&$args)
             .unwrap_or_else(|| ::std::result::Result::Ok($default));
     };
 
-    ( ok => $args:expr, $name:ident, $default:expr ) => {
+    ( ok => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
         let $name = $name
             .get(&$args)
             .map(|a| a.ok())
             .flatten()
-            .or_else(|| $default);
+            .or_else(|| Some($crate::__sarge_default::<$typ, _>($default)));
     };
 
-    ( => $args:expr, $name:ident, $default:expr ) => {
+    ( ok => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
+        let $name = $name
+            .get(&$args)
+            .map(|a| a.ok())
+            .flatten()
+            .or_else(|| Some($default));
+    };
+
+    ( => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
+        let $name = $name
+            .get(&$args)
+            .transpose()
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| $crate::__sarge_default::<$typ, _>($default));
+    };
+
+    ( => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
         let $name = $name
             .get(&$args)
             .transpose()
@@ -208,9 +231,10 @@ macro_rules! __var_tag {
 /// place the default on an `#err` argument, in which case it will become
 /// `Result<T, _>`.
 ///
-/// You may place defaults on `#ok` arguments by providing an `Option<T>`,
-/// typically `Some(default)`. This will be used when the argument is missing
-/// (or fails to parse, since `#ok` treats parsing errors as not passed).
+/// You may place defaults on `#ok` arguments by providing a plain value.
+/// This will be wrapped in `Some(...)` internally and used when the argument
+/// is missing (or fails to parse, since `#ok` treats parsing errors as not
+/// passed).
 ///
 /// # Example
 ///
@@ -466,7 +490,7 @@ macro_rules! sarge {
                 let args = parser.parse_provided(cli, env)?;
 
                 $(
-                    $crate::__parse_arg!($( $spec )? => args, $long, $( $default )?);
+                    $crate::__parse_arg!($( $spec )? => args, $long, $typ, $( $default )?);
                 )*
 
                 let me = Self {$(
