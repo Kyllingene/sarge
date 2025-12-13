@@ -297,6 +297,46 @@ macro_rules! __var_tag {
 macro_rules! sarge {
     (
         $( > $doc:literal )*
+        $( #[$enum_meta:meta] )+
+        $v:vis $name:ident, $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__struct
+            $( > $doc )*
+            [$($enum_meta)*]
+            $v $name, $($rest)*
+        }
+    };
+
+    (
+        $( > $doc:literal )*
+        [$($enum_meta:meta)*]
+        $v:vis $name:ident, $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__struct
+            $( > $doc )*
+            [$($enum_meta)*]
+            $v $name, $($rest)*
+        }
+    };
+
+    (
+        $( > $doc:literal )*
+        $v:vis $name:ident, $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__struct
+            $( > $doc )*
+            []
+            $v $name, $($rest)*
+        }
+    };
+
+    (
+        @__struct
+        $( > $doc:literal )*
+        [$($enum_meta:meta)*]
         $v:vis $name:ident, $(
             $( > $adoc:literal )*
             $( # $spec:ident )?
@@ -307,6 +347,7 @@ macro_rules! sarge {
             $( = $default:expr )?
         ),* $(,)?
     ) => {
+        $(#[$enum_meta])*
         $v struct $name {
             $(
                 $(#[doc = $adoc])*

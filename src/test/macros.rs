@@ -23,6 +23,15 @@ sarge! {
     #err sixth: u8 = 0,
 }
 
+sarge! {
+    > "Derived test args"
+    #[derive(Debug, PartialEq, Eq)]
+    DerivedArgs,
+
+    > "Derived test flag"
+    derived_flag: bool,
+}
+
 #[test]
 fn test_macros() {
     let (args, _) = Args::parse_cli([
@@ -43,4 +52,19 @@ fn test_macros() {
     assert_eq!(args.fourth, 10.11);
     assert_eq!(args.fifth, 1);
     assert!(args.sixth.is_err());
+}
+
+#[test]
+fn struct_attributes_are_applied() {
+    let (args, remainder) = DerivedArgs::parse_cli(["bin"]).expect("failed to parse derived args");
+
+    assert_eq!(remainder, vec!["bin"]);
+    assert_eq!(
+        args,
+        DerivedArgs {
+            derived_flag: false
+        }
+    );
+    let rendered = format!("{args:?}");
+    assert!(rendered.contains("derived_flag"));
 }
