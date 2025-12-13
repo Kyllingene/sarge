@@ -407,7 +407,7 @@ macro_rules! sarge {
                 V: std::convert::AsRef<str>,
                 I: std::iter::IntoIterator<Item = (K, V)>,
             >(env: I) -> std::result::Result<Self, $crate::ArgParseError> {
-                Ok(Self::parse_provided(
+                ::std::result::Result::Ok(Self::parse_provided(
                     std::option::Option::<&'static str>::None,
                     env,
                 )?.0)
@@ -471,7 +471,7 @@ macro_rules! sarge {
                     $long,
                 )*};
 
-                Ok((me, args.into()))
+                ::std::result::Result::Ok((me, args.into()))
             }
         }
     };

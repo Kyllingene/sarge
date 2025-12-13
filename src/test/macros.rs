@@ -1,5 +1,11 @@
 use crate::prelude::*;
 
+mod anyhow {
+    pub use ::std::result::Result::Ok;
+    pub struct Error;
+}
+use anyhow::Ok as AnyhowOk;
+
 sarge! {
     Args,
 
@@ -67,4 +73,15 @@ fn struct_attributes_are_applied() {
     );
     let rendered = format!("{args:?}");
     assert!(rendered.contains("derived_flag"));
+}
+
+#[test]
+fn ok_name_pollution_is_ignored() {
+    let (args, remainder) = DerivedArgs::parse_cli(["polluted"])
+        .expect("sarge should ignore anyhow::Ok import");
+
+    let _ = AnyhowOk::<(), anyhow::Error>(());
+
+    assert_eq!(remainder, vec!["polluted"]);
+    assert!(!args.derived_flag);
 }
