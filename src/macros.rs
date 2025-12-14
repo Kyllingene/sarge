@@ -5,44 +5,63 @@ pub mod const_exprs;
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __parse_arg {
-    ( err => $args:expr, $name:ident, ) => {
+    ( err => $args:expr, $name:ident, $typ:ty, ) => {
         let $name = $name.get(&$args);
     };
 
-    ( ok => $args:expr, $name:ident, ) => {
+    ( ok => $args:expr, $name:ident, $typ:ty, ) => {
         let $name = $name.get(&$args).map(|a| a.ok()).flatten();
     };
 
-    ( => $args:expr, $name:ident, ) => {
+    ( => $args:expr, $name:ident, $typ:ty, ) => {
         let $name = $name
             .get(&$args)
             .expect("Tried to unwrap argument that wasn't passed")
             .expect("Tried to unwrap argument that failed to parse");
     };
 
-    ( err => $args:expr, $name:ident, $default:expr ) => {
+    ( err => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
+        let $name = $name.get(&$args).unwrap_or_else(|| {
+            ::std::result::Result::Ok($crate::__sarge_default::<$typ, _>($default))
+        });
+    };
+
+    ( err => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
         let $name = $name
             .get(&$args)
             .unwrap_or_else(|| ::std::result::Result::Ok($default));
     };
 
-    ( ok => $args:expr, $name:ident, $default:expr ) => {
-        compile_error!(concat!(
-            "cannot have default value for argument `#ok ",
-            stringify!($name),
-            " = ",
-            stringify!($default),
-            "`, only on `#err` or unwrapped arguments",
-        ))
+    ( ok => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
+        let $name = match $name.get(&$args) {
+            None => Some($crate::__sarge_default::<$typ, _>($default)),
+            Some(Ok(v)) => Some(v),
+            Some(Err(_)) => None,
+        };
     };
 
-    ( => $args:expr, $name:ident, $default:expr ) => {
-        let $name = $name
-            .get(&$args)
-            .transpose()
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| $default);
+    ( ok => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
+        let $name = match $name.get(&$args) {
+            None => Some($default),
+            Some(Ok(v)) => Some(v),
+            Some(Err(_)) => None,
+        };
+    };
+
+    ( => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
+        let $name = match $name.get(&$args) {
+            None => $crate::__sarge_default::<$typ, _>($default),
+            Some(Ok(v)) => v,
+            Some(Err(_)) => panic!("Tried to unwrap argument that failed to parse"),
+        };
+    };
+
+    ( => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
+        let $name = match $name.get(&$args) {
+            None => $default,
+            Some(Ok(v)) => v,
+            Some(Err(_)) => panic!("Tried to unwrap argument that failed to parse"),
+        };
     };
 }
 
@@ -62,13 +81,7 @@ macro_rules! __arg_typ {
     };
 
     ( $name:ident, ok, $typ:ty, $default:expr ) => {
-        compile_error!(concat!(
-            "cannot have default value for argument `#ok ",
-            stringify!($name),
-            " = ",
-            stringify!($default),
-            "`, only on `#err` or unwrapped arguments",
-        ))
+        ::std::option::Option<$typ>
     };
 
     ( $name:ident, $typ:ty, $( $default:expr )? ) => {
@@ -171,6 +184,10 @@ macro_rules! __var_tag {
 /// `#ok` wraps it in `Option<T>`: if the argument wasn't passed, or failed to
 /// parse, it's `None`.
 ///
+/// If you provide a default value for an `#ok` argument (see [Defaults](#defaults)),
+/// then missing values fall back to the default. Parse failures still resolve to
+/// `None` (the same as a missing argument).
+///
 /// No wrapper means that if the argument wasn't passed, or failed to parse,
 /// trying to parse your arguments will panic. It gives basic error messages,
 /// but this should still be avoided if possible. It is, however, safe to use
@@ -216,7 +233,9 @@ macro_rules! __var_tag {
 /// place the default on an `#err` argument, in which case it will become
 /// `Result<T, _>`.
 ///
-/// You may not place defaults on `#ok` arguments.
+/// You may place defaults on `#ok` arguments by providing a plain value.
+/// This will be wrapped in `Some(...)` internally and used when the argument
+/// is missing.
 ///
 /// # Example
 ///
@@ -356,11 +375,11 @@ macro_rules! sarge {
         }
 
         impl $name {
-            /// Prints help for all the arguments.
+            /// Returns help for all the arguments.
             ///
             /// Only available on feature `help`.
             #[allow(unused)]
-            pub fn print_help() {
+            pub fn help() -> ::std::string::String {
                 let mut parser = $crate::ArgumentReader::new();
                 parser.doc = Some(
                     String::new()
@@ -373,7 +392,15 @@ macro_rules! sarge {
                     );
                 )*
 
-                parser.print_help();
+                parser.help()
+            }
+
+            /// Prints help for all the arguments.
+            ///
+            /// Only available on feature `help`.
+            #[allow(unused)]
+            pub fn print_help() {
+                print!("{}", Self::help());
             }
 
             /// Parse arguments from `std::env::{args,vars}`.
@@ -464,7 +491,7 @@ macro_rules! sarge {
                 let args = parser.parse_provided(cli, env)?;
 
                 $(
-                    $crate::__parse_arg!($( $spec )? => args, $long, $( $default )?);
+                    $crate::__parse_arg!($( $spec )? => args, $long, $typ, $( $default )?);
                 )*
 
                 let me = Self {$(

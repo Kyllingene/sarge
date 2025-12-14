@@ -95,15 +95,13 @@ impl Full {
     /// Returns whether or not the CLI component matches the given tag.
     /// Automatically determines whether it's a short or long tag.
     pub fn matches_cli(&self, tag: &str) -> bool {
-        self.cli.as_ref().map_or(false, |t| t.matches(tag))
+        self.cli.as_ref().is_some_and(|t| t.matches(tag))
     }
 
     /// Returns whether or not the CLI component matches the given long-form
     /// tag; assumes that the leading `--` has been stripped.
     pub fn matches_long(&self, long: &str) -> bool {
-        self.cli
-            .as_ref()
-            .map_or(false, |tag| tag.matches_long(long))
+        self.cli.as_ref().is_some_and(|tag| tag.matches_long(long))
     }
 
     /// Returns whether or not the CLI component matches the given short-form
@@ -111,13 +109,13 @@ impl Full {
     pub fn matches_short(&self, short: char) -> bool {
         self.cli
             .as_ref()
-            .map_or(false, |tag| tag.matches_short(short))
+            .is_some_and(|tag| tag.matches_short(short))
     }
 
     /// Returns whether or not the environment variable component matches the
     /// given name.
     pub fn matches_env(&self, env: &str) -> bool {
-        self.env.as_ref().map_or(false, |arg| arg == env)
+        self.env.as_ref().is_some_and(|arg| arg == env)
     }
 }
 

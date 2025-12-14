@@ -2,9 +2,9 @@ use crate::prelude::*;
 
 mod anyhow {
     pub use ::std::result::Result::Ok;
+    #[allow(dead_code)]
     pub struct Error;
 }
-use anyhow::Ok as AnyhowOk;
 
 sarge! {
     Args,
@@ -75,13 +75,77 @@ fn struct_attributes_are_applied() {
     assert!(rendered.contains("derived_flag"));
 }
 
+mod polluted_ok_import {
+    use super::anyhow;
+    use crate::prelude::*;
+    use anyhow::Ok;
+
+    sarge! {
+        PollutedArgs,
+        polluted_flag: bool,
+    }
+
+    #[test]
+    fn ok_import_does_not_break_macro() {
+        let (args, remainder) =
+            PollutedArgs::parse_cli(["polluted"]).expect("sarge should ignore anyhow::Ok import");
+
+        let _ = Ok::<(), anyhow::Error>(());
+
+        assert_eq!(remainder, vec!["polluted"]);
+        assert!(!args.polluted_flag);
+    }
+}
+
+sarge! {
+    #[derive(Debug, PartialEq, Eq)]
+    DefaultArgs,
+
+    // Default value (String).
+    socket_addr: String = "127.0.0.1:9912",
+
+    // `#ok` default is a plain value; macro wraps it in `Some(...)`.
+    #ok 't' target_addr: String = "127.0.0.1:9911",
+
+    // `#ok` default should be used when parsing fails.
+    #ok 'n' num: u32 = 42,
+
+    // `#err` default is a plain value (not `Some(Ok(...))`).
+    #err 'h' help: bool = false,
+}
+
 #[test]
-fn ok_name_pollution_is_ignored() {
-    let (args, remainder) = DerivedArgs::parse_cli(["polluted"])
-        .expect("sarge should ignore anyhow::Ok import");
+fn defaults_are_applied() {
+    let (args, remainder) = DefaultArgs::parse_cli(["bin"]).expect("failed to parse default args");
 
-    let _ = AnyhowOk::<(), anyhow::Error>(());
+    assert_eq!(remainder, vec!["bin"]);
+    assert_eq!(args.socket_addr, "127.0.0.1:9912");
+    assert_eq!(args.target_addr.as_deref(), Some("127.0.0.1:9911"));
+    assert_eq!(args.num, Some(42));
+    assert_eq!(args.help, Ok(false));
+}
 
-    assert_eq!(remainder, vec!["polluted"]);
-    assert!(!args.derived_flag);
+#[test]
+fn ok_default_is_none_on_parse_error() {
+    let (args, _) = DefaultArgs::parse_cli(["bin", "--num", "not-a-number"])
+        .expect("parse_cli should succeed; #ok turns parse failures into None");
+
+    assert_eq!(args.num, None);
+}
+
+#[test]
+fn ok_default_never_none_when_missing() {
+    let (args, _) = DefaultArgs::parse_cli(["bin"]).expect("failed to parse default args");
+
+    assert!(args.target_addr.is_some());
+    assert!(args.num.is_some());
+}
+
+#[test]
+fn ok_default_does_not_default_on_parse_error() {
+    // `#ok + default` applies only to missing values; parse failures become `None`.
+    let (args, _) = DefaultArgs::parse_cli(["bin", "--num", "bad"])
+        .expect("parse_cli should succeed; #ok turns parse failures into None");
+
+    assert_eq!(args.num, None);
 }

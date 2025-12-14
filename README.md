@@ -118,6 +118,8 @@ sarge! {
     #err foo: f32,
 
     // `#ok` makes the argument an `Option<T>`, discarding any parsing errors.
+    // Note: if you add a default to an `#ok` argument, it applies only when the
+    // argument is missing (parse failures still become `None`).
     #ok bar: f64,
 
     // Here's every feature in one argument: a `Result<T, _>` that can be set
