@@ -13,7 +13,7 @@ differences with the industry standard, [clap](https://crates.io/crates/clap):
     - Leads to small size: `264KiB` compared to clap's `5.5MiB`\*
       (shallow clone of git repository | `du -h`)
     - Leads to fast builds: `0.4s` to clap's `7s`, clean build\*
-      (times on desktop over decent `WiFi`)
+      (times on desktop over decent WiFi)
 - No proc macros
     - Provides a powerful *regular* macro through the default feature `macros`
 - Provides a cleaner builder-like interface
@@ -118,6 +118,8 @@ sarge! {
     #err foo: f32,
 
     // `#ok` makes the argument an `Option<T>`, discarding any parsing errors.
+    // Note: if you add a default to an `#ok` argument, it applies only when the
+    // argument is missing (parse failures still become `None`).
     #ok bar: f64,
 
     // Here's every feature in one argument: a `Result<T, _>` that can be set

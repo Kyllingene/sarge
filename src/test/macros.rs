@@ -126,9 +126,26 @@ fn defaults_are_applied() {
 }
 
 #[test]
-fn ok_default_is_used_on_parse_error() {
+fn ok_default_is_none_on_parse_error() {
     let (args, _) = DefaultArgs::parse_cli(["bin", "--num", "not-a-number"])
-        .expect("failed to parse default args with bad num");
+        .expect("parse_cli should succeed; #ok turns parse failures into None");
 
-    assert_eq!(args.num, Some(42));
+    assert_eq!(args.num, None);
+}
+
+#[test]
+fn ok_default_never_none_when_missing() {
+    let (args, _) = DefaultArgs::parse_cli(["bin"]).expect("failed to parse default args");
+
+    assert!(args.target_addr.is_some());
+    assert!(args.num.is_some());
+}
+
+#[test]
+fn ok_default_does_not_default_on_parse_error() {
+    // `#ok + default` applies only to missing values; parse failures become `None`.
+    let (args, _) = DefaultArgs::parse_cli(["bin", "--num", "bad"])
+        .expect("parse_cli should succeed; #ok turns parse failures into None");
+
+    assert_eq!(args.num, None);
 }

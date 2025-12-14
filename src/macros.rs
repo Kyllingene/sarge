@@ -33,37 +33,35 @@ macro_rules! __parse_arg {
     };
 
     ( ok => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
-        let $name = $name
-            .get(&$args)
-            .map(|a| a.ok())
-            .flatten()
-            .or_else(|| Some($crate::__sarge_default::<$typ, _>($default)));
+        let $name = match $name.get(&$args) {
+            None => Some($crate::__sarge_default::<$typ, _>($default)),
+            Some(Ok(v)) => Some(v),
+            Some(Err(_)) => None,
+        };
     };
 
     ( ok => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
-        let $name = $name
-            .get(&$args)
-            .map(|a| a.ok())
-            .flatten()
-            .or_else(|| Some($default));
+        let $name = match $name.get(&$args) {
+            None => Some($default),
+            Some(Ok(v)) => Some(v),
+            Some(Err(_)) => None,
+        };
     };
 
     ( => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
-        let $name = $name
-            .get(&$args)
-            .transpose()
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| $crate::__sarge_default::<$typ, _>($default));
+        let $name = match $name.get(&$args) {
+            None => $crate::__sarge_default::<$typ, _>($default),
+            Some(Ok(v)) => v,
+            Some(Err(_)) => panic!("Tried to unwrap argument that failed to parse"),
+        };
     };
 
     ( => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
-        let $name = $name
-            .get(&$args)
-            .transpose()
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| $default);
+        let $name = match $name.get(&$args) {
+            None => $default,
+            Some(Ok(v)) => v,
+            Some(Err(_)) => panic!("Tried to unwrap argument that failed to parse"),
+        };
     };
 }
 
@@ -186,6 +184,10 @@ macro_rules! __var_tag {
 /// `#ok` wraps it in `Option<T>`: if the argument wasn't passed, or failed to
 /// parse, it's `None`.
 ///
+/// If you provide a default value for an `#ok` argument (see [Defaults](#defaults)),
+/// then missing values fall back to the default. Parse failures still resolve to
+/// `None` (the same as a missing argument).
+///
 /// No wrapper means that if the argument wasn't passed, or failed to parse,
 /// trying to parse your arguments will panic. It gives basic error messages,
 /// but this should still be avoided if possible. It is, however, safe to use
@@ -233,8 +235,7 @@ macro_rules! __var_tag {
 ///
 /// You may place defaults on `#ok` arguments by providing a plain value.
 /// This will be wrapped in `Some(...)` internally and used when the argument
-/// is missing (or fails to parse, since `#ok` treats parsing errors as not
-/// passed).
+/// is missing.
 ///
 /// # Example
 ///
