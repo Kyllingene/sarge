@@ -124,6 +124,9 @@ sarge! {
     // Here's every feature in one argument: a `Result<T, _>` that can be set
     // via `-b`, `--baz`, or `BAZ=`, and defaults to [1, 2, 3] if not passed.
     #err 'b' @BAZ baz: Vec<u64> = vec![1, 2, 3],
+
+    // Convenience: for `Vec<String>`, you can write `vec!["a", "b"]` as a default
+    // (elements are converted to `String` automatically).
 }
 
 // Some utility macros to make this example less verbose.

@@ -54,6 +54,34 @@ where
     d.__sarge_default()
 }
 
+/// Like [`__sarge_default`], but intentionally does *not* include literal-only
+/// convenience conversions (such as `&str -> String`) to avoid type inference
+/// ambiguity for expression defaults like `"foo".into()`.
+#[doc(hidden)]
+pub trait __SargeDefaultExpr<T> {
+    fn __sarge_default_expr(self) -> T;
+}
+
+impl<T> __SargeDefaultExpr<T> for T {
+    fn __sarge_default_expr(self) -> T {
+        self
+    }
+}
+
+impl<'a> __SargeDefaultExpr<Vec<String>> for Vec<&'a str> {
+    fn __sarge_default_expr(self) -> Vec<String> {
+        self.into_iter().map(str::to_string).collect()
+    }
+}
+
+#[doc(hidden)]
+pub fn __sarge_default_expr<T, D>(d: D) -> T
+where
+    D: __SargeDefaultExpr<T>,
+{
+    d.__sarge_default_expr()
+}
+
 #[cfg(test)]
 mod test;
 
@@ -138,6 +166,20 @@ impl<T: ArgumentType> ArgumentRef<T> {
         } else {
             T::default_value().map(Ok)
         }
+    }
+
+    /// Retrieve the value of the argument from an [`Arguments`] without applying
+    /// the type's [`ArgumentType::default_value`].
+    ///
+    /// This is primarily useful for macro expansions that want wrapper semantics
+    /// (`#ok`/`#err`) and macro-provided defaults to take precedence.
+    #[doc(hidden)]
+    pub fn get_raw(&self, args: &Arguments) -> ArgResult<T> {
+        args.get_arg(self.i)
+            .val
+            .as_ref()
+            .map(|val| T::from_value(val.as_deref()))
+            .flatten()
     }
 
     /// Retrieve the tag of the argument from an [`Arguments`].

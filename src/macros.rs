@@ -6,11 +6,11 @@ pub mod const_exprs;
 #[doc(hidden)]
 macro_rules! __parse_arg {
     ( err => $args:expr, $name:ident, $typ:ty, ) => {
-        let $name = $name.get(&$args);
+        let $name = $name.get_raw(&$args);
     };
 
     ( ok => $args:expr, $name:ident, $typ:ty, ) => {
-        let $name = $name.get(&$args).map(|a| a.ok()).flatten();
+        let $name = $name.get_raw(&$args).map(|a| a.ok()).flatten();
     };
 
     ( => $args:expr, $name:ident, $typ:ty, ) => {
@@ -21,19 +21,21 @@ macro_rules! __parse_arg {
     };
 
     ( err => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
-        let $name = $name.get(&$args).unwrap_or_else(|| {
+        let $name = $name.get_raw(&$args).unwrap_or_else(|| {
             ::std::result::Result::Ok($crate::__sarge_default::<$typ, _>($default))
         });
     };
 
     ( err => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
         let $name = $name
-            .get(&$args)
-            .unwrap_or_else(|| ::std::result::Result::Ok($default));
+            .get_raw(&$args)
+            .unwrap_or_else(|| {
+                ::std::result::Result::Ok($crate::__sarge_default_expr::<$typ, _>($default))
+            });
     };
 
     ( ok => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
-        let $name = match $name.get(&$args) {
+        let $name = match $name.get_raw(&$args) {
             None => Some($crate::__sarge_default::<$typ, _>($default)),
             Some(Ok(v)) => Some(v),
             Some(Err(_)) => None,
@@ -41,15 +43,15 @@ macro_rules! __parse_arg {
     };
 
     ( ok => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
-        let $name = match $name.get(&$args) {
-            None => Some($default),
+        let $name = match $name.get_raw(&$args) {
+            None => Some($crate::__sarge_default_expr::<$typ, _>($default)),
             Some(Ok(v)) => Some(v),
             Some(Err(_)) => None,
         };
     };
 
     ( => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
-        let $name = match $name.get(&$args) {
+        let $name = match $name.get_raw(&$args) {
             None => $crate::__sarge_default::<$typ, _>($default),
             Some(Ok(v)) => v,
             Some(Err(_)) => panic!("Tried to unwrap argument that failed to parse"),
@@ -57,8 +59,8 @@ macro_rules! __parse_arg {
     };
 
     ( => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
-        let $name = match $name.get(&$args) {
-            None => $default,
+        let $name = match $name.get_raw(&$args) {
+            None => $crate::__sarge_default_expr::<$typ, _>($default),
             Some(Ok(v)) => v,
             Some(Err(_)) => panic!("Tried to unwrap argument that failed to parse"),
         };
@@ -237,6 +239,10 @@ macro_rules! __var_tag {
 /// This will be wrapped in `Some(...)` internally and used when the argument
 /// is missing.
 ///
+/// For some common types, defaults support convenient forms:
+/// - `String`: `"text"` (no `.to_string()` / `.into()` needed)
+/// - `Vec<String>`: `vec!["a", "b"]` (elements are converted to `String`)
+///
 /// # Example
 ///
 /// ```
@@ -278,7 +284,7 @@ macro_rules! __var_tag {
 ///     #err 'b' @BAZ baz: Vec<u64>,
 ///
 ///     // An argument with a default value:
-///     qux: String = "foobar".into(),
+///     qux: String = "foobar",
 /// }
 ///
 /// fn main() {

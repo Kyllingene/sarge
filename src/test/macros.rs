@@ -107,11 +107,14 @@ sarge! {
     // `#ok` default is a plain value; macro wraps it in `Some(...)`.
     #ok 't' target_addr: String = "127.0.0.1:9911",
 
-    // `#ok` default should be used when parsing fails.
+    // `#ok + default` applies only to missing values; parse failures become `None`.
     #ok 'n' num: u32 = 42,
 
     // `#err` default is a plain value (not `Some(Ok(...))`).
-    #err 'h' help: bool = false,
+    #err 'h' help: bool = true,
+
+    // `Vec<String>` defaults can be specified without `.into()` per element.
+    #ok 'd' data: Vec<String> = vec![r#"{"name":"hello"}"#],
 }
 
 #[test]
@@ -122,7 +125,8 @@ fn defaults_are_applied() {
     assert_eq!(args.socket_addr, "127.0.0.1:9912");
     assert_eq!(args.target_addr.as_deref(), Some("127.0.0.1:9911"));
     assert_eq!(args.num, Some(42));
-    assert_eq!(args.help, Ok(false));
+    assert_eq!(args.help, Ok(true));
+    assert_eq!(args.data, Some(vec![r#"{"name":"hello"}"#.to_string()]));
 }
 
 #[test]
