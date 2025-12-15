@@ -6,11 +6,11 @@ pub mod const_exprs;
 #[doc(hidden)]
 macro_rules! __parse_arg {
     ( err => $args:expr, $name:ident, $typ:ty, ) => {
-        let $name = $name.get(&$args);
+        let $name = $name.get_raw(&$args);
     };
 
     ( ok => $args:expr, $name:ident, $typ:ty, ) => {
-        let $name = $name.get(&$args).map(|a| a.ok()).flatten();
+        let $name = $name.get_raw(&$args).map(|a| a.ok()).flatten();
     };
 
     ( => $args:expr, $name:ident, $typ:ty, ) => {
@@ -21,19 +21,21 @@ macro_rules! __parse_arg {
     };
 
     ( err => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
-        let $name = $name.get(&$args).unwrap_or_else(|| {
+        let $name = $name.get_raw(&$args).unwrap_or_else(|| {
             ::std::result::Result::Ok($crate::__sarge_default::<$typ, _>($default))
         });
     };
 
     ( err => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
         let $name = $name
-            .get(&$args)
-            .unwrap_or_else(|| ::std::result::Result::Ok($default));
+            .get_raw(&$args)
+            .unwrap_or_else(|| {
+                ::std::result::Result::Ok($crate::__sarge_default_expr::<$typ>($default))
+            });
     };
 
     ( ok => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
-        let $name = match $name.get(&$args) {
+        let $name = match $name.get_raw(&$args) {
             None => Some($crate::__sarge_default::<$typ, _>($default)),
             Some(Ok(v)) => Some(v),
             Some(Err(_)) => None,
@@ -41,15 +43,15 @@ macro_rules! __parse_arg {
     };
 
     ( ok => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
-        let $name = match $name.get(&$args) {
-            None => Some($default),
+        let $name = match $name.get_raw(&$args) {
+            None => Some($crate::__sarge_default_expr::<$typ>($default)),
             Some(Ok(v)) => Some(v),
             Some(Err(_)) => None,
         };
     };
 
     ( => $args:expr, $name:ident, $typ:ty, $default:literal ) => {
-        let $name = match $name.get(&$args) {
+        let $name = match $name.get_raw(&$args) {
             None => $crate::__sarge_default::<$typ, _>($default),
             Some(Ok(v)) => v,
             Some(Err(_)) => panic!("Tried to unwrap argument that failed to parse"),
@@ -57,8 +59,8 @@ macro_rules! __parse_arg {
     };
 
     ( => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
-        let $name = match $name.get(&$args) {
-            None => $default,
+        let $name = match $name.get_raw(&$args) {
+            None => $crate::__sarge_default_expr::<$typ>($default),
             Some(Ok(v)) => v,
             Some(Err(_)) => panic!("Tried to unwrap argument that failed to parse"),
         };
@@ -93,48 +95,62 @@ macro_rules! __arg_typ {
 #[doc(hidden)]
 macro_rules! __var_tag {
     ( $long:ident $( $doc:literal )* ) => {{
-        let mut s = ::std::string::String::new();
-        $(
-            s.push_str($doc);
-            s.push('\n');
-        )*
-        s.pop();
-        $crate::tag::long($crate::__replace!(::std::stringify!($long), '_', '-'))
-            .doc(s)
+        let tag = $crate::tag::long($crate::__replace!(::std::stringify!($long), '_', '-'));
+        #[cfg(feature = "help")]
+        let tag = {
+            let mut s = ::std::string::String::new();
+            $(
+                s.push_str($doc);
+                s.push('\n');
+            )*
+            s.pop();
+            tag.doc(s)
+        };
+        tag
     }};
     ( $short:literal $long:ident $( $doc:literal )* ) => {{
-        let mut s = ::std::string::String::new();
-        $(
-            s.push_str($doc);
-            s.push('\n');
-        )*
-        s.pop();
-        $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'))
-            .doc(s)
+        let tag = $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'));
+        #[cfg(feature = "help")]
+        let tag = {
+            let mut s = ::std::string::String::new();
+            $(
+                s.push_str($doc);
+                s.push('\n');
+            )*
+            s.pop();
+            tag.doc(s)
+        };
+        tag
     }};
     ( $long:ident $env:ident $( $doc:literal )* ) => {{
-        let mut s = ::std::string::String::new();
-        $(
-            s.push_str($doc);
-            s.push('\n');
-        )*
-        s.pop();
-        $crate::tag::long(
-            $crate::__replace!(::std::stringify!($long), '_', '-')
-        )
-            .env(::std::stringify!($env))
-            .doc(s)
+        let tag = $crate::tag::long($crate::__replace!(::std::stringify!($long), '_', '-'))
+            .env(::std::stringify!($env));
+        #[cfg(feature = "help")]
+        let tag = {
+            let mut s = ::std::string::String::new();
+            $(
+                s.push_str($doc);
+                s.push('\n');
+            )*
+            s.pop();
+            tag.doc(s)
+        };
+        tag
     }};
     ( $short:literal $long:ident $env:ident $( $doc:literal )* ) => {{
-        let mut s = ::std::string::String::new();
-        $(
-            s.push_str($doc);
-            s.push('\n');
-        )*
-        s.pop();
-        $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'))
-            .env(::std::stringify!($env))
-            .doc(s)
+        let tag = $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'))
+            .env(::std::stringify!($env));
+        #[cfg(feature = "help")]
+        let tag = {
+            let mut s = ::std::string::String::new();
+            $(
+                s.push_str($doc);
+                s.push('\n');
+            )*
+            s.pop();
+            tag.doc(s)
+        };
+        tag
     }};
 }
 
@@ -151,19 +167,18 @@ macro_rules! __var_tag {
 ///
 /// Each field has the following form:
 /// ```plain
-///     [> DOCS...]
+///     [#attributes...]
 ///     [#MARKER] [SHORT_FORM] [@ENV_FORM] long_form: type [= DEFAULT],
 /// ```
 ///
 /// # Documentation
 ///
-/// You may specify documentation to apply to arguments. On feature `help`,
-/// this will also be specified in `print_help`. Example:
+/// You may specify documentation to apply to the struct or its fields using
+/// normal Rust doc comments (`/// ...`) (or explicitly as `#[doc = "..."]`).
+/// On feature `help`, this will also be included in the output of `help()`.
 ///
-/// ```plain
-///     > "Documentation for argument"
-///     (rest of argument)
-/// ```
+/// Note: the legacy `> "..."` documentation syntax has been removed; use
+/// doc comments instead.
 ///
 /// Whether or not you add documentation, the basic form of the argument will
 /// still be provided in the help message.
@@ -228,14 +243,17 @@ macro_rules! __var_tag {
 ///     page: u32 = 1,
 /// ```
 ///
-/// This example shows an infallible default, i.e. even if the argument is
-/// passed but fails to parse, it will be defaulted. You may instead desire to
-/// place the default on an `#err` argument, in which case it will become
-/// `Result<T, _>`.
+/// Defaults apply when an argument is missing. If the argument is provided but
+/// fails to parse, wrapper semantics still apply (`#ok` becomes `None`, `#err`
+/// becomes `Err(_)`, and no wrapper will panic).
 ///
 /// You may place defaults on `#ok` arguments by providing a plain value.
 /// This will be wrapped in `Some(...)` internally and used when the argument
 /// is missing.
+///
+/// For some common types, defaults support convenient forms:
+/// - `String`: `"text"` (no `.to_string()` / `.into()` needed)
+/// - `Vec<String>`: `vec!["a", "b"]` (elements are converted to `String`)
 ///
 /// # Example
 ///
@@ -243,7 +261,7 @@ macro_rules! __var_tag {
 /// # use sarge::prelude::*;
 /// sarge! {
 ///     // This is the name of our struct.
-///     > "This is documentation for our command."
+///     /// This is documentation for our command.
 ///     Args,
 ///
 ///     // These are our arguments. Each will have a long variant matching the
@@ -255,7 +273,7 @@ macro_rules! __var_tag {
 ///     // will panic. Thankfully, `bool` arguments are immune to both, and
 ///     // `String` arguments are immune to the latter.
 ///
-///     > "Hello, World!"
+///     /// Hello, World!
 ///     first: bool, // true if `--first` is passed, false otherwise
 ///
 ///     // If you want a short variant (e.g. '-s'), you can specify one with a char
@@ -278,7 +296,7 @@ macro_rules! __var_tag {
 ///     #err 'b' @BAZ baz: Vec<u64>,
 ///
 ///     // An argument with a default value:
-///     qux: String = "foobar".into(),
+///     qux: String = "foobar",
 /// }
 ///
 /// fn main() {
@@ -315,49 +333,11 @@ macro_rules! __var_tag {
 #[macro_export]
 macro_rules! sarge {
     (
-        $( > $doc:literal )*
-        $( #[$enum_meta:meta] )+
-        $v:vis $name:ident, $($rest:tt)*
-    ) => {
-        $crate::sarge! {
-            @__struct
-            $( > $doc )*
-            [$($enum_meta)*]
-            $v $name, $($rest)*
-        }
-    };
-
-    (
-        $( > $doc:literal )*
-        [$($enum_meta:meta)*]
-        $v:vis $name:ident, $($rest:tt)*
-    ) => {
-        $crate::sarge! {
-            @__struct
-            $( > $doc )*
-            [$($enum_meta)*]
-            $v $name, $($rest)*
-        }
-    };
-
-    (
-        $( > $doc:literal )*
-        $v:vis $name:ident, $($rest:tt)*
-    ) => {
-        $crate::sarge! {
-            @__struct
-            $( > $doc )*
-            []
-            $v $name, $($rest)*
-        }
-    };
-
-    (
         @__struct
-        $( > $doc:literal )*
-        [$($enum_meta:meta)*]
+        [ $( $doc:literal )* ]
+        [ $( $struct_meta:meta )* ]
         $v:vis $name:ident, $(
-            $( > $adoc:literal )*
+            $( #[doc = $field_doc:literal] )*
             $( # $spec:ident )?
             $( $short:literal )?
             $( @ $env:ident )?
@@ -366,10 +346,10 @@ macro_rules! sarge {
             $( = $default:expr )?
         ),* $(,)?
     ) => {
-        $(#[$enum_meta])*
+        $(#[$struct_meta])*
         $v struct $name {
             $(
-                $(#[doc = $adoc])*
+                $(#[doc = $field_doc])*
                 $av $long: $crate::__arg_typ!($long, $( $spec, )? $typ, $( $default )?),
             )*
         }
@@ -378,17 +358,24 @@ macro_rules! sarge {
             /// Returns help for all the arguments.
             ///
             /// Only available on feature `help`.
+            #[cfg(feature = "help")]
             #[allow(unused)]
             pub fn help() -> ::std::string::String {
                 let mut parser = $crate::ArgumentReader::new();
-                parser.doc = Some(
-                    String::new()
-                        $( + "\n" + $doc )*
-                );
+
+                let mut doc = ::std::string::String::new();
+                $(
+                    doc.push_str($doc);
+                    doc.push('\n');
+                )*
+                doc.pop();
+                if !doc.is_empty() {
+                    parser.doc = Some(doc);
+                }
 
                 $(
                     parser.add::<$typ>(
-                        $crate::__var_tag!($( $short )? $long $( $env )? $( $adoc )*)
+                        $crate::__var_tag!($( $short )? $long $( $env )? $( $field_doc )*)
                     );
                 )*
 
@@ -398,6 +385,7 @@ macro_rules! sarge {
             /// Prints help for all the arguments.
             ///
             /// Only available on feature `help`.
+            #[cfg(feature = "help")]
             #[allow(unused)]
             pub fn print_help() {
                 print!("{}", Self::help());
@@ -500,6 +488,61 @@ macro_rules! sarge {
 
                 ::std::result::Result::Ok((me, args.into()))
             }
+        }
+    };
+
+    (
+        @__collect
+        [ $( $doc:literal )* ]
+        [ $( $struct_meta:meta )* ]
+        #[doc = $next_doc:literal]
+        $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__collect
+            [ $( $doc )* $next_doc ]
+            [ $( $struct_meta )* doc = $next_doc ]
+            $($rest)*
+        }
+    };
+
+    (
+        @__collect
+        [ $( $doc:literal )* ]
+        [ $( $struct_meta:meta )* ]
+        #[$next_meta:meta]
+        $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__collect
+            [ $( $doc )* ]
+            [ $( $struct_meta )* $next_meta ]
+            $($rest)*
+        }
+    };
+
+    (
+        @__collect
+        [ $( $doc:literal )* ]
+        [ $( $struct_meta:meta )* ]
+        $v:vis $name:ident, $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__struct
+            [ $( $doc )* ]
+            [ $( $struct_meta )* ]
+            $v $name, $($rest)*
+        }
+    };
+
+    (
+        $( $tt:tt )*
+    ) => {
+        $crate::sarge! {
+            @__collect
+            []
+            []
+            $( $tt )*
         }
     };
 }

@@ -1,17 +1,17 @@
 use sarge::prelude::*;
 
 sarge! {
-    > "This is a basic macros example."
+    /// This is a basic macros example.
     Args,
 
-    > "Show this help message."
+    /// Show this help message.
     'h' help: bool,
 
-    > "The name to greet."
+    /// The name to greet.
     'n' @NAME name: String,
 
-    > "The number of times to greet."
-    > "Defaults to 1."
+    /// The number of times to greet.
+    /// Defaults to 1.
     #ok times: u32,
 }
 

@@ -54,6 +54,33 @@ where
     d.__sarge_default()
 }
 
+/// A helper trait for expression defaults in `sarge!`.
+///
+/// This is intentionally narrower than `__SargeDefault`: it avoids adding
+/// `&str -> String` for all expressions, which can otherwise trigger type
+/// inference ambiguity for defaults like `"foo".into()`.
+#[doc(hidden)]
+pub trait __SargeDefaultExpr<T> {
+    fn __sarge_default_expr(self) -> T;
+}
+
+impl<T> __SargeDefaultExpr<T> for T {
+    fn __sarge_default_expr(self) -> T {
+        self
+    }
+}
+
+impl<'a> __SargeDefaultExpr<Vec<String>> for Vec<&'a str> {
+    fn __sarge_default_expr(self) -> Vec<String> {
+        self.into_iter().map(str::to_string).collect()
+    }
+}
+
+#[doc(hidden)]
+pub fn __sarge_default_expr<T>(d: impl __SargeDefaultExpr<T>) -> T {
+    d.__sarge_default_expr()
+}
+
 #[cfg(test)]
 mod test;
 
@@ -62,6 +89,8 @@ mod test;
 struct InternalArgument {
     tag: Full,
     consumes: bool,
+    repeatable: bool,
+    cli_set: bool,
     val: Option<Option<String>>,
 }
 
@@ -137,6 +166,20 @@ impl<T: ArgumentType> ArgumentRef<T> {
             T::from_value(val.as_deref())
         } else {
             T::default_value().map(Ok)
+        }
+    }
+
+    /// Retrieve the value of the argument from an [`Arguments`] without applying
+    /// the type's [`ArgumentType::default_value`].
+    ///
+    /// This is primarily useful for macro expansions that want wrapper semantics
+    /// (`#ok`/`#err`) and macro-provided defaults to take precedence.
+    #[doc(hidden)]
+    pub fn get_raw(&self, args: &Arguments) -> ArgResult<T> {
+        if let Some(val) = &args.get_arg(self.i).val {
+            T::from_value(val.as_deref())
+        } else {
+            None
         }
     }
 
@@ -232,6 +275,8 @@ impl ArgumentReader {
         let arg = InternalArgument {
             tag,
             consumes: T::CONSUMES,
+            repeatable: T::REPEATABLE,
+            cli_set: false,
             val: None,
         };
 
@@ -335,6 +380,11 @@ impl ArgumentReader {
                     .find(|arg| arg.tag.matches_long(long))
                     .ok_or(ArgParseError::UnknownFlag(long.to_string()))?;
 
+                if !arg.cli_set {
+                    arg.val = None;
+                    arg.cli_set = true;
+                }
+
                 let val = if arg.consumes {
                     if val.is_none() {
                         args.next().map(tostring)
@@ -345,7 +395,21 @@ impl ArgumentReader {
                     None
                 };
 
-                arg.val = Some(val);
+                if arg.repeatable {
+                    if let Some(val) = val {
+                        match &mut arg.val {
+                            Some(Some(existing)) => {
+                                existing.push(',');
+                                existing.push_str(&val);
+                            }
+                            _ => {
+                                arg.val = Some(Some(val));
+                            }
+                        }
+                    }
+                } else {
+                    arg.val = Some(val);
+                }
             } else if let Some(shorts) = arg.strip_prefix('-') {
                 if shorts.is_empty() {
                     remainder.push(String::from("-"));
@@ -369,7 +433,26 @@ impl ArgumentReader {
                             None
                         };
 
-                        arg.val = Some(next);
+                        if !arg.cli_set {
+                            arg.val = None;
+                            arg.cli_set = true;
+                        }
+
+                        if arg.repeatable {
+                            if let Some(next) = next {
+                                match &mut arg.val {
+                                    Some(Some(existing)) => {
+                                        existing.push(',');
+                                        existing.push_str(&next);
+                                    }
+                                    _ => {
+                                        arg.val = Some(Some(next));
+                                    }
+                                }
+                            }
+                        } else {
+                            arg.val = Some(next);
+                        }
                     }
                 }
             } else {

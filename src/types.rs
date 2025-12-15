@@ -34,6 +34,12 @@ pub trait ArgumentType: Sized {
     /// Whether or not this type consumes any arguments.
     const CONSUMES: bool = true;
 
+    /// Whether this argument can be specified multiple times and should
+    /// accumulate values instead of overwriting.
+    ///
+    /// This is primarily used for `Vec<T>`, so `-H a -H b` becomes `["a", "b"]`.
+    const REPEATABLE: bool = false;
+
     /// Perform parsing on the value.
     ///
     /// If the argument doesn't take any input, `val` is None.
@@ -105,6 +111,8 @@ impl ArgumentType for bool {
 
 impl<T: ArgumentType> ArgumentType for Vec<T> {
     type Error = T::Error;
+
+    const REPEATABLE: bool = true;
 
     fn from_value(val: Option<&str>) -> ArgResult<Self> {
         let bits = val?.split(',');
