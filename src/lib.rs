@@ -83,8 +83,38 @@ pub fn __sarge_default_expr<T>(d: impl __SargeDefaultExpr<T>) -> T {
     d.__sarge_default_expr()
 }
 
+/// Internal helper for `sarge!` and related macros.
+#[doc(hidden)]
+pub fn __sarge_tag_with_doc(tag: Full, build_doc: impl FnOnce() -> String) -> Full {
+    #[cfg(feature = "help")]
+    {
+        tag.doc(build_doc())
+    }
+
+    #[cfg(not(feature = "help"))]
+    {
+        let _ = build_doc;
+        tag
+    }
+}
+
+/// Internal helper for `sarge!` and related macros.
+#[doc(hidden)]
+pub fn __sarge_render_help(parser: &ArgumentReader) -> String {
+    #[cfg(feature = "help")]
+    {
+        parser.help()
+    }
+
+    #[cfg(not(feature = "help"))]
+    {
+        let _ = parser;
+        "help is disabled (enable sarge's `help` feature to render it)".to_string()
+    }
+}
+
 #[cfg(test)]
-mod test;
+mod tests;
 
 #[derive(Clone, Debug)]
 #[allow(clippy::option_option)]

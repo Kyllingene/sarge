@@ -20,10 +20,23 @@ default = ["help", "macros"]
 help = []
 macros = []
 
+
 [[example]]
 name = "help"
 required-features = ["help"]
 
 [[example]]
 name = "macros"
-required-features = ["help"]
+required-features = ["macros"]
+
+
+[package.metadata.release]
+pre-release-hook = ["bash", "scripts/update_readme_release_metrics.sh"]
+pre-release-replacements = [
+    # Update inline-table dependency snippets like:
+    # sarge = { version = "9.0.0", features = ["macros"] }
+    { file = "README.md", search = "sarge\\s*=\\s*\\{\\s*version\\s*=\\s*\"[0-9]+\\.[0-9]+(\\.[0-9]+)?(-[0-9A-Za-z.-]+)?\"", replace = "sarge = { version = \"{{version}}\"", min = 0 },
+    # Update plain dependency snippets like:
+    # sarge = "9.0.0"
+    { file = "README.md", search = "sarge\\s*=\\s*\"[0-9]+\\.[0-9]+(\\.[0-9]+)?(-[0-9A-Za-z.-]+)?\"", replace = "sarge = \"{{version}}\"" },
+]
