@@ -34,8 +34,7 @@ shouldn't be any major changes on sarge's side.
 
 One or more of the above might be a deal-breaker. That's okay! I made sarge so
 that there was a good, light alternative to clap. Use whichever one suits
-your use-case. I personally use sarge for all my projects, because they're all
-small; this forces me to be active in maintaining it.
+your use-case.
 
 ## Features
 
