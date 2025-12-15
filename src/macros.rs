@@ -233,10 +233,9 @@ macro_rules! __var_tag {
 ///     page: u32 = 1,
 /// ```
 ///
-/// This example shows an infallible default, i.e. even if the argument is
-/// passed but fails to parse, it will be defaulted. You may instead desire to
-/// place the default on an `#err` argument, in which case it will become
-/// `Result<T, _>`.
+/// Defaults apply when an argument is missing. If the argument is provided but
+/// fails to parse, wrapper semantics still apply (`#ok` becomes `None`, `#err`
+/// becomes `Err(_)`, and no wrapper will panic).
 ///
 /// You may place defaults on `#ok` arguments by providing a plain value.
 /// This will be wrapped in `Some(...)` internally and used when the argument

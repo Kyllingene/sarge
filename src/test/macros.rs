@@ -22,7 +22,7 @@ sarge! {
     // of the argument, i.e. `-f`
     'f' fourth: f64,
 
-    // You can give values an infallible default:
+    // You can give values a default:
     fifth: u32 = 1,
 
     // ...or keep any errors:
@@ -93,6 +93,36 @@ fn doc_comments_are_used_for_help() {
     assert!(s.contains("DocComment test flag"));
 }
 
+#[cfg(feature = "help")]
+#[test]
+fn angle_docs_are_used_for_help() {
+    let s = DerivedArgs::help();
+    assert!(s.contains("Derived test args"));
+    assert!(s.contains("Derived test flag"));
+}
+
+#[cfg(feature = "help")]
+sarge! {
+    > "Docs from >"
+    /// Docs from ///
+    #[allow(dead_code)]
+    MixedDocArgs,
+
+    > "Field docs from >"
+    /// Field docs from ///
+    mixed_flag: bool,
+}
+
+#[cfg(feature = "help")]
+#[test]
+fn mixed_docs_are_used_for_help() {
+    let s = MixedDocArgs::help();
+    assert!(s.contains("Docs from >"));
+    assert!(s.contains("Docs from ///"));
+    assert!(s.contains("Field docs from >"));
+    assert!(s.contains("Field docs from ///"));
+}
+
 mod polluted_ok_import {
     use super::anyhow;
     use crate::prelude::*;
@@ -141,6 +171,44 @@ sarge! {
     #ok 'H' headers: Vec<String>,
 }
 
+#[cfg(feature = "macros")]
+sarge! {
+    RepeatableVecEnvArgs,
+    #ok @HEADERS headers: Vec<String>,
+}
+
+// Test matrix: wrapper type (none/#ok/#err) × default (none/some) × input
+// (missing/parse ok/parse err).
+sarge! {
+    #[derive(Debug, PartialEq, Eq)]
+    OkNoDefaultArgs,
+    #ok ok_num: u32,
+}
+
+sarge! {
+    #[derive(Debug, PartialEq, Eq)]
+    ErrNoDefaultArgs,
+    #err err_num: u32,
+}
+
+sarge! {
+    #[derive(Debug, PartialEq, Eq)]
+    ErrDefaultArgs,
+    #err err_num: u32 = 9,
+}
+
+sarge! {
+    #[derive(Debug, PartialEq, Eq)]
+    PlainNoDefaultArgs,
+    num: u32,
+}
+
+sarge! {
+    #[derive(Debug, PartialEq, Eq)]
+    PlainDefaultArgs,
+    num: u32 = 7,
+}
+
 #[test]
 fn defaults_are_applied() {
     let (args, remainder) = DefaultArgs::parse_cli(["bin"]).expect("failed to parse default args");
@@ -179,6 +247,34 @@ fn repeatable_vec_type_accumulates_in_macro() {
 }
 
 #[test]
+fn repeatable_vec_type_accumulates_in_macro_with_long_form() {
+    let (args, remainder) =
+        RepeatableVecArgs::parse_cli(["bin", "--headers", "a", "--headers", "b,c"])
+            .expect("failed to parse repeatable vec args");
+
+    assert_eq!(remainder, vec!["bin"]);
+    assert_eq!(
+        args.headers,
+        Some(vec!["a".to_string(), "b".to_string(), "c".to_string(),])
+    );
+}
+
+#[test]
+fn repeatable_vec_type_cli_overrides_env_in_macro() {
+    let env = [("HEADERS", "env1,env2")];
+    let cli = ["bin", "--headers", "cli1", "--headers", "cli2"];
+
+    let (args, remainder) = RepeatableVecEnvArgs::parse_provided(cli, env)
+        .expect("failed to parse repeatable vec args");
+
+    assert_eq!(remainder, vec!["bin"]);
+    assert_eq!(
+        args.headers,
+        Some(vec!["cli1".to_string(), "cli2".to_string()])
+    );
+}
+
+#[test]
 fn ok_default_is_none_on_parse_error() {
     let (args, _) = DefaultArgs::parse_cli(["bin", "--num", "not-a-number"])
         .expect("parse_cli should succeed; #ok turns parse failures into None");
@@ -201,4 +297,116 @@ fn ok_default_does_not_default_on_parse_error() {
         .expect("parse_cli should succeed; #ok turns parse failures into None");
 
     assert_eq!(args.num, None);
+}
+
+#[test]
+fn ok_without_default_missing_is_none() {
+    let (args, _) = OkNoDefaultArgs::parse_cli(["bin"]).expect("failed to parse ok args");
+    assert_eq!(args.ok_num, None);
+}
+
+#[test]
+fn ok_without_default_parse_success_is_some() {
+    let (args, _) =
+        OkNoDefaultArgs::parse_cli(["bin", "--ok-num", "123"]).expect("failed to parse ok args");
+    assert_eq!(args.ok_num, Some(123));
+}
+
+#[test]
+fn ok_without_default_parse_failure_is_none() {
+    let (args, _) =
+        OkNoDefaultArgs::parse_cli(["bin", "--ok-num", "bad"]).expect("failed to parse ok args");
+    assert_eq!(args.ok_num, None);
+}
+
+#[test]
+fn ok_default_parse_success_overrides_default() {
+    let (args, _) =
+        DefaultArgs::parse_cli(["bin", "--num", "7"]).expect("failed to parse default args");
+    assert_eq!(args.num, Some(7));
+}
+
+#[test]
+fn ok_default_string_overrides_default() {
+    let (args, _) = DefaultArgs::parse_cli(["bin", "--target-addr", "x"])
+        .expect("failed to parse default args");
+    assert_eq!(args.target_addr.as_deref(), Some("x"));
+}
+
+#[test]
+fn err_without_default_missing_is_none() {
+    let (args, _) = ErrNoDefaultArgs::parse_cli(["bin"]).expect("failed to parse err args");
+    assert_eq!(args.err_num, None);
+}
+
+#[test]
+fn err_without_default_parse_success_is_ok() {
+    let (args, _) =
+        ErrNoDefaultArgs::parse_cli(["bin", "--err-num", "123"]).expect("failed to parse err args");
+    assert_eq!(args.err_num, Some(Ok(123)));
+}
+
+#[test]
+fn err_without_default_parse_failure_is_err() {
+    let (args, _) =
+        ErrNoDefaultArgs::parse_cli(["bin", "--err-num", "bad"]).expect("failed to parse err args");
+    assert!(matches!(args.err_num, Some(Err(_))));
+}
+
+#[test]
+fn err_default_missing_uses_default() {
+    let (args, _) = ErrDefaultArgs::parse_cli(["bin"]).expect("failed to parse err default args");
+    assert_eq!(args.err_num, Ok(9));
+}
+
+#[test]
+fn err_default_parse_success_overrides_default() {
+    let (args, _) =
+        ErrDefaultArgs::parse_cli(["bin", "--err-num", "10"]).expect("failed to parse err args");
+    assert_eq!(args.err_num, Ok(10));
+}
+
+#[test]
+fn err_default_parse_failure_is_err() {
+    let (args, _) =
+        ErrDefaultArgs::parse_cli(["bin", "--err-num", "bad"]).expect("failed to parse err args");
+    assert!(args.err_num.is_err());
+}
+
+#[test]
+#[should_panic(expected = "Tried to unwrap argument that wasn't passed")]
+fn plain_without_default_missing_panics() {
+    let _ = PlainNoDefaultArgs::parse_cli(["bin"]);
+}
+
+#[test]
+#[should_panic(expected = "Tried to unwrap argument that failed to parse")]
+fn plain_without_default_parse_failure_panics() {
+    let _ = PlainNoDefaultArgs::parse_cli(["bin", "--num", "bad"]);
+}
+
+#[test]
+fn plain_without_default_parse_success_is_value() {
+    let (args, _) =
+        PlainNoDefaultArgs::parse_cli(["bin", "--num", "5"]).expect("failed to parse plain args");
+    assert_eq!(args.num, 5);
+}
+
+#[test]
+fn plain_default_missing_uses_default() {
+    let (args, _) = PlainDefaultArgs::parse_cli(["bin"]).expect("failed to parse plain args");
+    assert_eq!(args.num, 7);
+}
+
+#[test]
+fn plain_default_parse_success_overrides_default() {
+    let (args, _) =
+        PlainDefaultArgs::parse_cli(["bin", "--num", "9"]).expect("failed to parse plain args");
+    assert_eq!(args.num, 9);
+}
+
+#[test]
+#[should_panic(expected = "Tried to unwrap argument that failed to parse")]
+fn plain_default_parse_failure_panics() {
+    let _ = PlainDefaultArgs::parse_cli(["bin", "--num", "bad"]);
 }
