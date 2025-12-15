@@ -27,11 +27,9 @@ macro_rules! __parse_arg {
     };
 
     ( err => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
-        let $name = $name
-            .get_raw(&$args)
-            .unwrap_or_else(|| {
-                ::std::result::Result::Ok($crate::__sarge_default_expr::<$typ>($default))
-            });
+        let $name = $name.get_raw(&$args).unwrap_or_else(|| {
+            ::std::result::Result::Ok($crate::__sarge_default_expr::<$typ>($default))
+        });
     };
 
     ( ok => $args:expr, $name:ident, $typ:ty, $default:literal ) => {

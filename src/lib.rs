@@ -5,6 +5,8 @@
 #![allow(clippy::must_use_candidate)]
 #![allow(clippy::redundant_closure_for_method_calls)]
 #![allow(clippy::float_cmp)]
+#![allow(clippy::needless_doctest_main)]
+#![allow(clippy::doc_markdown)]
 
 pub mod prelude;
 
@@ -70,7 +72,7 @@ impl<T> __SargeDefaultExpr<T> for T {
     }
 }
 
-impl<'a> __SargeDefaultExpr<Vec<String>> for Vec<&'a str> {
+impl __SargeDefaultExpr<Vec<String>> for Vec<&'_ str> {
     fn __sarge_default_expr(self) -> Vec<String> {
         self.into_iter().map(str::to_string).collect()
     }

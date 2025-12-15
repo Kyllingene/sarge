@@ -1,6 +1,6 @@
 [package]
 name = "sarge"
-version = "8.0.1"
+version = "9.0.0"
 edition = "2021"
 
 authors = ["Kyllingene"]
@@ -10,7 +10,7 @@ repository = "https://github.com/kyllingene/sarge"
 license = "MIT"
 
 keywords = ["cli", "argparse", "command-line"]
-categories = ["command-line-interface", ]
+categories = ["command-line-interface"]
 
 [dependencies]
 # DO NOT add any dependencies!
@@ -27,4 +27,3 @@ required-features = ["help"]
 [[example]]
 name = "macros"
 required-features = ["help"]
-
