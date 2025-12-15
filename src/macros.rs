@@ -95,48 +95,62 @@ macro_rules! __arg_typ {
 #[doc(hidden)]
 macro_rules! __var_tag {
     ( $long:ident $( $doc:literal )* ) => {{
-        let mut s = ::std::string::String::new();
-        $(
-            s.push_str($doc);
-            s.push('\n');
-        )*
-        s.pop();
-        $crate::tag::long($crate::__replace!(::std::stringify!($long), '_', '-'))
-            .doc(s)
+        let tag = $crate::tag::long($crate::__replace!(::std::stringify!($long), '_', '-'));
+        #[cfg(feature = "help")]
+        let tag = {
+            let mut s = ::std::string::String::new();
+            $(
+                s.push_str($doc);
+                s.push('\n');
+            )*
+            s.pop();
+            tag.doc(s)
+        };
+        tag
     }};
     ( $short:literal $long:ident $( $doc:literal )* ) => {{
-        let mut s = ::std::string::String::new();
-        $(
-            s.push_str($doc);
-            s.push('\n');
-        )*
-        s.pop();
-        $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'))
-            .doc(s)
+        let tag = $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'));
+        #[cfg(feature = "help")]
+        let tag = {
+            let mut s = ::std::string::String::new();
+            $(
+                s.push_str($doc);
+                s.push('\n');
+            )*
+            s.pop();
+            tag.doc(s)
+        };
+        tag
     }};
     ( $long:ident $env:ident $( $doc:literal )* ) => {{
-        let mut s = ::std::string::String::new();
-        $(
-            s.push_str($doc);
-            s.push('\n');
-        )*
-        s.pop();
-        $crate::tag::long(
-            $crate::__replace!(::std::stringify!($long), '_', '-')
-        )
-            .env(::std::stringify!($env))
-            .doc(s)
+        let tag = $crate::tag::long($crate::__replace!(::std::stringify!($long), '_', '-'))
+            .env(::std::stringify!($env));
+        #[cfg(feature = "help")]
+        let tag = {
+            let mut s = ::std::string::String::new();
+            $(
+                s.push_str($doc);
+                s.push('\n');
+            )*
+            s.pop();
+            tag.doc(s)
+        };
+        tag
     }};
     ( $short:literal $long:ident $env:ident $( $doc:literal )* ) => {{
-        let mut s = ::std::string::String::new();
-        $(
-            s.push_str($doc);
-            s.push('\n');
-        )*
-        s.pop();
-        $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'))
-            .env(::std::stringify!($env))
-            .doc(s)
+        let tag = $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'))
+            .env(::std::stringify!($env));
+        #[cfg(feature = "help")]
+        let tag = {
+            let mut s = ::std::string::String::new();
+            $(
+                s.push_str($doc);
+                s.push('\n');
+            )*
+            s.pop();
+            tag.doc(s)
+        };
+        tag
     }};
 }
 
@@ -153,22 +167,18 @@ macro_rules! __var_tag {
 ///
 /// Each field has the following form:
 /// ```plain
-///     [> DOCS...]
+///     [#attributes...]
 ///     [#MARKER] [SHORT_FORM] [@ENV_FORM] long_form: type [= DEFAULT],
 /// ```
 ///
 /// # Documentation
 ///
-/// You may specify documentation to apply to arguments. On feature `help`,
-/// this will also be specified in `print_help`. Example:
+/// You may specify documentation to apply to the struct or its fields using
+/// normal Rust doc comments (`/// ...`) (or explicitly as `#[doc = "..."]`).
+/// On feature `help`, this will also be included in the output of `help()`.
 ///
-/// ```plain
-///     > "Documentation for argument"
-///     (rest of argument)
-/// ```
-///
-/// You may also use normal Rust doc comments (`/// ...`) in place of `> "..."`
-/// on both the struct and its fields; they are treated as help text as well.
+/// Note: the legacy `> "..."` documentation syntax has been removed; use
+/// doc comments instead.
 ///
 /// Whether or not you add documentation, the basic form of the argument will
 /// still be provided in the help message.
@@ -251,7 +261,7 @@ macro_rules! __var_tag {
 /// # use sarge::prelude::*;
 /// sarge! {
 ///     // This is the name of our struct.
-///     > "This is documentation for our command."
+///     /// This is documentation for our command.
 ///     Args,
 ///
 ///     // These are our arguments. Each will have a long variant matching the
@@ -263,7 +273,7 @@ macro_rules! __var_tag {
 ///     // will panic. Thankfully, `bool` arguments are immune to both, and
 ///     // `String` arguments are immune to the latter.
 ///
-///     > "Hello, World!"
+///     /// Hello, World!
 ///     first: bool, // true if `--first` is passed, false otherwise
 ///
 ///     // If you want a short variant (e.g. '-s'), you can specify one with a char
@@ -324,11 +334,10 @@ macro_rules! __var_tag {
 macro_rules! sarge {
     (
         @__struct
-        $( > $doc:literal )*
-        [$($enum_meta:meta)*]
+        [ $( $doc:literal )* ]
+        [ $( $struct_meta:meta )* ]
         $v:vis $name:ident, $(
-            $( > $adoc:literal )*
-            $( #[doc = $adoc_attr:literal] )*
+            $( #[doc = $field_doc:literal] )*
             $( # $spec:ident )?
             $( $short:literal )?
             $( @ $env:ident )?
@@ -337,11 +346,10 @@ macro_rules! sarge {
             $( = $default:expr )?
         ),* $(,)?
     ) => {
-        $(#[$enum_meta])*
+        $(#[$struct_meta])*
         $v struct $name {
             $(
-                $(#[doc = $adoc])*
-                $(#[doc = $adoc_attr])*
+                $(#[doc = $field_doc])*
                 $av $long: $crate::__arg_typ!($long, $( $spec, )? $typ, $( $default )?),
             )*
         }
@@ -350,14 +358,24 @@ macro_rules! sarge {
             /// Returns help for all the arguments.
             ///
             /// Only available on feature `help`.
+            #[cfg(feature = "help")]
             #[allow(unused)]
             pub fn help() -> ::std::string::String {
                 let mut parser = $crate::ArgumentReader::new();
-                parser.doc = Some(String::new() $( + "\n" + $doc )*);
+
+                let mut doc = ::std::string::String::new();
+                $(
+                    doc.push_str($doc);
+                    doc.push('\n');
+                )*
+                doc.pop();
+                if !doc.is_empty() {
+                    parser.doc = Some(doc);
+                }
 
                 $(
                     parser.add::<$typ>(
-                        $crate::__var_tag!($( $short )? $long $( $env )? $( $adoc )* $( $adoc_attr )*)
+                        $crate::__var_tag!($( $short )? $long $( $env )? $( $field_doc )*)
                     );
                 )*
 
@@ -367,6 +385,7 @@ macro_rules! sarge {
             /// Prints help for all the arguments.
             ///
             /// Only available on feature `help`.
+            #[cfg(feature = "help")]
             #[allow(unused)]
             pub fn print_help() {
                 print!("{}", Self::help());
@@ -474,73 +493,44 @@ macro_rules! sarge {
 
     (
         @__collect
-        [$($doc:literal)*]
-        [$($enum_meta:meta)*]
-        > $next_doc:literal
-        $($rest:tt)*
-    ) => {
-        $crate::sarge! {
-            @__collect
-            [$($doc)* $next_doc]
-            [$($enum_meta)*]
-            $($rest)*
-        }
-    };
-
-    (
-        @__collect
-        [$($doc:literal)*]
-        [$($enum_meta:meta)*]
+        [ $( $doc:literal )* ]
+        [ $( $struct_meta:meta )* ]
         #[doc = $next_doc:literal]
         $($rest:tt)*
     ) => {
         $crate::sarge! {
             @__collect
-            [$($doc)* $next_doc]
-            [$($enum_meta)* doc = $next_doc]
+            [ $( $doc )* $next_doc ]
+            [ $( $struct_meta )* doc = $next_doc ]
             $($rest)*
         }
     };
 
     (
         @__collect
-        [$($doc:literal)*]
-        [$($enum_meta:meta)*]
+        [ $( $doc:literal )* ]
+        [ $( $struct_meta:meta )* ]
         #[$next_meta:meta]
         $($rest:tt)*
     ) => {
         $crate::sarge! {
             @__collect
-            [$($doc)*]
-            [$($enum_meta)* $next_meta]
+            [ $( $doc )* ]
+            [ $( $struct_meta )* $next_meta ]
             $($rest)*
         }
     };
 
     (
         @__collect
-        [$($doc:literal)*]
-        [$($enum_meta:meta)*]
+        [ $( $doc:literal )* ]
+        [ $( $struct_meta:meta )* ]
         $v:vis $name:ident, $($rest:tt)*
     ) => {
         $crate::sarge! {
             @__struct
-            $( > $doc )*
-            [$($enum_meta)*]
-            $v $name, $($rest)*
-        }
-    };
-
-    // Backwards-compat helper: allow explicitly passing a meta list.
-    (
-        $( > $doc:literal )*
-        [$($enum_meta:meta)*]
-        $v:vis $name:ident, $($rest:tt)*
-    ) => {
-        $crate::sarge! {
-            @__struct
-            $( > $doc )*
-            [$($enum_meta)*]
+            [ $( $doc )* ]
+            [ $( $struct_meta )* ]
             $v $name, $($rest)*
         }
     };

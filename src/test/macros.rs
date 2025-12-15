@@ -30,11 +30,11 @@ sarge! {
 }
 
 sarge! {
-    > "Derived test args"
+    /// Derived test args
     #[derive(Debug, PartialEq, Eq)]
     DerivedArgs,
 
-    > "Derived test flag"
+    /// Derived test flag
     derived_flag: bool,
 }
 
@@ -95,7 +95,7 @@ fn doc_comments_are_used_for_help() {
 
 #[cfg(feature = "help")]
 #[test]
-fn angle_docs_are_used_for_help() {
+fn derived_args_docs_are_used_for_help() {
     let s = DerivedArgs::help();
     assert!(s.contains("Derived test args"));
     assert!(s.contains("Derived test flag"));
@@ -103,13 +103,13 @@ fn angle_docs_are_used_for_help() {
 
 #[cfg(feature = "help")]
 sarge! {
-    > "Docs from >"
-    /// Docs from ///
+    /// Docs line 1
+    /// Docs line 2
     #[allow(dead_code)]
     MixedDocArgs,
 
-    > "Field docs from >"
-    /// Field docs from ///
+    /// Field docs line 1
+    /// Field docs line 2
     mixed_flag: bool,
 }
 
@@ -117,10 +117,10 @@ sarge! {
 #[test]
 fn mixed_docs_are_used_for_help() {
     let s = MixedDocArgs::help();
-    assert!(s.contains("Docs from >"));
-    assert!(s.contains("Docs from ///"));
-    assert!(s.contains("Field docs from >"));
-    assert!(s.contains("Field docs from ///"));
+    assert!(s.contains("Docs line 1"));
+    assert!(s.contains("Docs line 2"));
+    assert!(s.contains("Field docs line 1"));
+    assert!(s.contains("Field docs line 2"));
 }
 
 mod polluted_ok_import {

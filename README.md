@@ -86,11 +86,14 @@ disable the `macros` feature, this won't compile:
 ```rust
 use sarge::prelude::*;
 
+// Use Rust doc comments (`/// ...`) inside `sarge!` to provide help text.
+// (The legacy `> "..."` doc syntax has been removed.)
+
 // This is a normal, non-proc macro. That means sarge is still
 // zero-dependency! The syntax may seem a little strange at first, but it
 // should help greatly when defining your CLI interface.
 sarge! {
-    // This is the name of our struct.
+    /// Documentation shown in `Args::help()` (feature `help`).
     Args,
 
     // These are our arguments. Each will have a long variant matching the
@@ -102,7 +105,8 @@ sarge! {
     // will panic. Thankfully, `bool` arguments are immune to both, and
     // `String` arguments are immune to the latter.
 
-    first: bool, // true if `--first` is passed, false otherwise
+    /// true if `--first` is passed, false otherwise
+    first: bool,
 
     // If you want a short variant (e.g. '-s'), you can specify one with a char
     // literal before the name (but after the wrapper, if any):
