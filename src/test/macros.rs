@@ -38,6 +38,16 @@ sarge! {
     derived_flag: bool,
 }
 
+#[cfg(feature = "help")]
+sarge! {
+    /// DocComment test args
+    #[derive(Debug, PartialEq, Eq)]
+    DocCommentArgs,
+
+    /// DocComment test flag
+    doc_flag: bool,
+}
+
 #[test]
 fn test_macros() {
     let (args, _) = Args::parse_cli([
@@ -73,6 +83,14 @@ fn struct_attributes_are_applied() {
     );
     let rendered = format!("{args:?}");
     assert!(rendered.contains("derived_flag"));
+}
+
+#[cfg(feature = "help")]
+#[test]
+fn doc_comments_are_used_for_help() {
+    let s = DocCommentArgs::help();
+    assert!(s.contains("DocComment test args"));
+    assert!(s.contains("DocComment test flag"));
 }
 
 mod polluted_ok_import {
@@ -117,6 +135,12 @@ sarge! {
     #ok 'd' data: Vec<String> = vec![r#"{"name":"hello"}"#],
 }
 
+#[cfg(feature = "macros")]
+sarge! {
+    RepeatableVecArgs,
+    #ok 'H' headers: Vec<String>,
+}
+
 #[test]
 fn defaults_are_applied() {
     let (args, remainder) = DefaultArgs::parse_cli(["bin"]).expect("failed to parse default args");
@@ -127,6 +151,31 @@ fn defaults_are_applied() {
     assert_eq!(args.num, Some(42));
     assert_eq!(args.help, Ok(true));
     assert_eq!(args.data, Some(vec![r#"{"name":"hello"}"#.to_string()]));
+}
+
+#[test]
+fn repeatable_vec_type_accumulates_in_macro() {
+    let (args, remainder) = RepeatableVecArgs::parse_cli([
+        "bin",
+        "-H",
+        "Connection: close",
+        "-H",
+        "Date: Sun 14 Dec 2025 16:59:06 GMT",
+        "-H",
+        "a,b",
+    ])
+    .expect("failed to parse repeatable vec args");
+
+    assert_eq!(remainder, vec!["bin"]);
+    assert_eq!(
+        args.headers,
+        Some(vec![
+            "Connection: close".to_string(),
+            "Date: Sun 14 Dec 2025 16:59:06 GMT".to_string(),
+            "a".to_string(),
+            "b".to_string(),
+        ])
+    );
 }
 
 #[test]

@@ -30,7 +30,7 @@ macro_rules! __parse_arg {
         let $name = $name
             .get_raw(&$args)
             .unwrap_or_else(|| {
-                ::std::result::Result::Ok($crate::__sarge_default_expr::<$typ, _>($default))
+                ::std::result::Result::Ok($crate::__sarge_default_expr::<$typ>($default))
             });
     };
 
@@ -44,7 +44,7 @@ macro_rules! __parse_arg {
 
     ( ok => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
         let $name = match $name.get_raw(&$args) {
-            None => Some($crate::__sarge_default_expr::<$typ, _>($default)),
+            None => Some($crate::__sarge_default_expr::<$typ>($default)),
             Some(Ok(v)) => Some(v),
             Some(Err(_)) => None,
         };
@@ -60,7 +60,7 @@ macro_rules! __parse_arg {
 
     ( => $args:expr, $name:ident, $typ:ty, $default:expr ) => {
         let $name = match $name.get_raw(&$args) {
-            None => $crate::__sarge_default_expr::<$typ, _>($default),
+            None => $crate::__sarge_default_expr::<$typ>($default),
             Some(Ok(v)) => v,
             Some(Err(_)) => panic!("Tried to unwrap argument that failed to parse"),
         };
@@ -166,6 +166,9 @@ macro_rules! __var_tag {
 ///     > "Documentation for argument"
 ///     (rest of argument)
 /// ```
+///
+/// You may also use normal Rust doc comments (`/// ...`) in place of `> "..."`
+/// on both the struct and its fields; they are treated as help text as well.
 ///
 /// Whether or not you add documentation, the basic form of the argument will
 /// still be provided in the help message.
@@ -321,49 +324,12 @@ macro_rules! __var_tag {
 #[macro_export]
 macro_rules! sarge {
     (
-        $( > $doc:literal )*
-        $( #[$enum_meta:meta] )+
-        $v:vis $name:ident, $($rest:tt)*
-    ) => {
-        $crate::sarge! {
-            @__struct
-            $( > $doc )*
-            [$($enum_meta)*]
-            $v $name, $($rest)*
-        }
-    };
-
-    (
-        $( > $doc:literal )*
-        [$($enum_meta:meta)*]
-        $v:vis $name:ident, $($rest:tt)*
-    ) => {
-        $crate::sarge! {
-            @__struct
-            $( > $doc )*
-            [$($enum_meta)*]
-            $v $name, $($rest)*
-        }
-    };
-
-    (
-        $( > $doc:literal )*
-        $v:vis $name:ident, $($rest:tt)*
-    ) => {
-        $crate::sarge! {
-            @__struct
-            $( > $doc )*
-            []
-            $v $name, $($rest)*
-        }
-    };
-
-    (
         @__struct
         $( > $doc:literal )*
         [$($enum_meta:meta)*]
         $v:vis $name:ident, $(
             $( > $adoc:literal )*
+            $( #[doc = $adoc_attr:literal] )*
             $( # $spec:ident )?
             $( $short:literal )?
             $( @ $env:ident )?
@@ -376,6 +342,7 @@ macro_rules! sarge {
         $v struct $name {
             $(
                 $(#[doc = $adoc])*
+                $(#[doc = $adoc_attr])*
                 $av $long: $crate::__arg_typ!($long, $( $spec, )? $typ, $( $default )?),
             )*
         }
@@ -387,14 +354,11 @@ macro_rules! sarge {
             #[allow(unused)]
             pub fn help() -> ::std::string::String {
                 let mut parser = $crate::ArgumentReader::new();
-                parser.doc = Some(
-                    String::new()
-                        $( + "\n" + $doc )*
-                );
+                parser.doc = Some(String::new() $( + "\n" + $doc )*);
 
                 $(
                     parser.add::<$typ>(
-                        $crate::__var_tag!($( $short )? $long $( $env )? $( $adoc )*)
+                        $crate::__var_tag!($( $short )? $long $( $env )? $( $adoc )* $( $adoc_attr )*)
                     );
                 )*
 
@@ -506,6 +470,90 @@ macro_rules! sarge {
 
                 ::std::result::Result::Ok((me, args.into()))
             }
+        }
+    };
+
+    (
+        @__collect
+        [$($doc:literal)*]
+        [$($enum_meta:meta)*]
+        > $next_doc:literal
+        $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__collect
+            [$($doc)* $next_doc]
+            [$($enum_meta)*]
+            $($rest)*
+        }
+    };
+
+    (
+        @__collect
+        [$($doc:literal)*]
+        [$($enum_meta:meta)*]
+        #[doc = $next_doc:literal]
+        $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__collect
+            [$($doc)* $next_doc]
+            [$($enum_meta)* doc = $next_doc]
+            $($rest)*
+        }
+    };
+
+    (
+        @__collect
+        [$($doc:literal)*]
+        [$($enum_meta:meta)*]
+        #[$next_meta:meta]
+        $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__collect
+            [$($doc)*]
+            [$($enum_meta)* $next_meta]
+            $($rest)*
+        }
+    };
+
+    (
+        @__collect
+        [$($doc:literal)*]
+        [$($enum_meta:meta)*]
+        $v:vis $name:ident, $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__struct
+            $( > $doc )*
+            [$($enum_meta)*]
+            $v $name, $($rest)*
+        }
+    };
+
+    // Backwards-compat helper: allow explicitly passing a meta list.
+    (
+        $( > $doc:literal )*
+        [$($enum_meta:meta)*]
+        $v:vis $name:ident, $($rest:tt)*
+    ) => {
+        $crate::sarge! {
+            @__struct
+            $( > $doc )*
+            [$($enum_meta)*]
+            $v $name, $($rest)*
+        }
+    };
+
+    (
+        $( $tt:tt )*
+    ) => {
+        $crate::sarge! {
+            @__collect
+            []
+            []
+            $( $tt )*
         }
     };
 }

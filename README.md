@@ -125,6 +125,9 @@ sarge! {
     // via `-b`, `--baz`, or `BAZ=`, and defaults to [1, 2, 3] if not passed.
     #err 'b' @BAZ baz: Vec<u64> = vec![1, 2, 3],
 
+    // `Vec<T>` arguments can also be repeated; values are appended:
+    // `--baz 1 --baz 2` is equivalent to `--baz 1,2`.
+
     // Convenience: for `Vec<String>`, you can write `vec!["a", "b"]` as a default
     // (elements are converted to `String` automatically).
 }
