@@ -164,8 +164,25 @@ pub(crate) fn render_argument(arg: &Full, params: DocParams) -> String {
         s.push_str(&empty(params.env_width));
     }
 
-    if let Some(doc) = &arg.doc {
-        s.push_str(&wrap_doc(doc, params));
+    match (&arg.doc, &arg.default) {
+        (Some(doc), Some(default)) => {
+            let default = if default.is_empty() { r#""""# } else { default };
+            let mut combined = String::with_capacity(doc.len() + default.len() + 20);
+            combined.push_str(doc);
+            combined.push_str(" (default: ");
+            combined.push_str(default);
+            combined.push(')');
+            s.push_str(&wrap_doc(&combined, params));
+        }
+        (Some(doc), None) => s.push_str(&wrap_doc(doc, params)),
+        (None, Some(default)) => {
+            let default = if default.is_empty() { r#""""# } else { default };
+            let mut combined = String::with_capacity(default.len() + 12);
+            combined.push_str("default: ");
+            combined.push_str(default);
+            s.push_str(&wrap_doc(&combined, params));
+        }
+        (None, None) => {}
     }
 
     s

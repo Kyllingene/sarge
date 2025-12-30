@@ -67,6 +67,17 @@ macro_rules! __parse_arg {
 
 #[macro_export]
 #[doc(hidden)]
+macro_rules! __sarge_eval_default_for_help {
+    ( $typ:ty, $default:literal ) => {
+        $crate::__sarge_default::<$typ, _>($default)
+    };
+    ( $typ:ty, $default:expr ) => {
+        $crate::__sarge_default_expr::<$typ>($default)
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
 macro_rules! __arg_typ {
     ( $name:ident, err, $typ:ty, ) => {
         $crate::ArgResult<$typ>
@@ -92,63 +103,22 @@ macro_rules! __arg_typ {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __var_tag {
-    ( $long:ident $( $doc:literal )* ) => {{
-        let tag = $crate::tag::long($crate::__replace!(::std::stringify!($long), '_', '-'));
-        #[cfg(feature = "help")]
-        let tag = {
+    ( $( $short:literal )? $long:ident $( $env:ident )? $( $doc:literal )* ) => {{
+        let long = $crate::__replace!(::std::stringify!($long), '_', '-');
+
+        let tag = $crate::tag::long(long);
+        $( let tag = $crate::tag::both($short, long); )?
+        $( let tag = tag.env(::std::stringify!($env)); )?
+
+        $crate::__sarge_tag_with_doc(tag, || {
             let mut s = ::std::string::String::new();
             $(
                 s.push_str($doc);
                 s.push('\n');
             )*
             s.pop();
-            tag.doc(s)
-        };
-        tag
-    }};
-    ( $short:literal $long:ident $( $doc:literal )* ) => {{
-        let tag = $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'));
-        #[cfg(feature = "help")]
-        let tag = {
-            let mut s = ::std::string::String::new();
-            $(
-                s.push_str($doc);
-                s.push('\n');
-            )*
-            s.pop();
-            tag.doc(s)
-        };
-        tag
-    }};
-    ( $long:ident $env:ident $( $doc:literal )* ) => {{
-        let tag = $crate::tag::long($crate::__replace!(::std::stringify!($long), '_', '-'))
-            .env(::std::stringify!($env));
-        #[cfg(feature = "help")]
-        let tag = {
-            let mut s = ::std::string::String::new();
-            $(
-                s.push_str($doc);
-                s.push('\n');
-            )*
-            s.pop();
-            tag.doc(s)
-        };
-        tag
-    }};
-    ( $short:literal $long:ident $env:ident $( $doc:literal )* ) => {{
-        let tag = $crate::tag::both($short, $crate::__replace!(::std::stringify!($long), '_', '-'))
-            .env(::std::stringify!($env));
-        #[cfg(feature = "help")]
-        let tag = {
-            let mut s = ::std::string::String::new();
-            $(
-                s.push_str($doc);
-                s.push('\n');
-            )*
-            s.pop();
-            tag.doc(s)
-        };
-        tag
+            s
+        })
     }};
 }
 
@@ -175,8 +145,7 @@ macro_rules! __var_tag {
 /// normal Rust doc comments (`/// ...`) (or explicitly as `#[doc = "..."]`).
 /// On feature `help`, this will also be included in the output of `help()`.
 ///
-/// Note: the legacy `> "..."` documentation syntax has been removed; use
-/// doc comments instead.
+/// Only Rust doc comments (`/// ...`) and `#[doc = "..."]` are supported.
 ///
 /// Whether or not you add documentation, the basic form of the argument will
 /// still be provided in the help message.
@@ -355,8 +324,7 @@ macro_rules! sarge {
         impl $name {
             /// Returns help for all the arguments.
             ///
-            /// Only available on feature `help`.
-            #[cfg(feature = "help")]
+            /// Requires the `help` feature on the `sarge` crate.
             #[allow(unused)]
             pub fn help() -> ::std::string::String {
                 let mut parser = $crate::ArgumentReader::new();
@@ -373,17 +341,27 @@ macro_rules! sarge {
 
                 $(
                     parser.add::<$typ>(
-                        $crate::__var_tag!($( $short )? $long $( $env )? $( $field_doc )*)
+                        {
+                            let tag =
+                                $crate::__var_tag!($( $short )? $long $( $env )? $( $field_doc )*);
+                            $(
+                                let tag = $crate::__sarge_tag_with_default(
+                                    tag,
+                                    stringify!($default),
+                                    || $crate::__sarge_eval_default_for_help!($typ, $default),
+                                );
+                            )?
+                            tag
+                        }
                     );
                 )*
 
-                parser.help()
+                $crate::__sarge_render_help(&parser)
             }
 
             /// Prints help for all the arguments.
             ///
-            /// Only available on feature `help`.
-            #[cfg(feature = "help")]
+            /// Requires the `help` feature on the `sarge` crate.
             #[allow(unused)]
             pub fn print_help() {
                 print!("{}", Self::help());
@@ -493,6 +471,15 @@ macro_rules! sarge {
         @__collect
         [ $( $doc:literal )* ]
         [ $( $struct_meta:meta )* ]
+        > $($rest:tt)*
+    ) => {
+        ::core::compile_error!("legacy `>` doc syntax is not supported; use Rust doc comments (`/// ...`) or `#[doc = \"...\"]`.");
+    };
+
+    (
+        @__collect
+        [ $( $doc:literal )* ]
+        [ $( $struct_meta:meta )* ]
         #[doc = $next_doc:literal]
         $($rest:tt)*
     ) => {
@@ -531,6 +518,29 @@ macro_rules! sarge {
             [ $( $struct_meta )* ]
             $v $name, $($rest)*
         }
+    };
+
+    (
+        @__struct
+        [ $( $doc:literal )* ]
+        [ $( $struct_meta:meta )* ]
+        $v:vis $name:ident, > $($rest:tt)*
+    ) => {
+        ::core::compile_error!("legacy `>` doc syntax is not supported; use Rust doc comments (`/// ...`) or `#[doc = \"...\"]`.");
+    };
+
+    (
+        @__struct
+        $($tt:tt)*
+    ) => {
+        ::core::compile_error!("invalid sarge! macro invocation: failed to parse fields (use Rust doc comments (`/// ...`) or `#[doc = \"...\"]`).");
+    };
+
+    (
+        @__collect
+        $($tt:tt)*
+    ) => {
+        ::core::compile_error!("invalid sarge! macro invocation: failed to collect docs/metadata (use Rust doc comments (`/// ...`) or `#[doc = \"...\"]`).");
     };
 
     (

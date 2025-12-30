@@ -4,77 +4,91 @@
 ![license](https://img.shields.io/crates/l/sarge)
 ![version](https://img.shields.io/crates/v/sarge)
 
-Sarge is a small, opinionated arguments parser. It tries to
-make parsing arguments as quick and painless as possible. It has zero
-dependencies, reducing cruft and therefore build times. Here are some
-differences with the industry standard, [clap](https://crates.io/crates/clap):
+Sarge is a small, opinionated arguments parser. It tries to make parsing
+arguments as quick and painless as possible. It has zero dependencies, reducing
+cruft and therefore build times. Here are some differences with the industry
+standard, [clap](https://crates.io/crates/clap):
+
+## Installation:
+
+```bash
+# install sarge with cargo
+cargo add sarge
+```
+
+```toml
+[dependencies]
+sarge = "8.9.0"
+```
 
 - No dependencies
-    - Leads to small size: `264KiB` compared to clap's `5.5MiB`\*
-      (shallow clone of git repository | `du -h`)
-    - Leads to fast builds: `0.4s` to clap's `7s`, clean build\*
-      (times on desktop over decent WiFi)
+  - Leads to small size: `284KiB` compared to clap's `5.8MiB`\* (shallow clone
+    of git repository | `du -h`)
+  - Leads to fast builds: `0.4s` to clap's `7s`, clean build\* (times on desktop
+    over decent WiFi)
 - No proc macros
-    - Provides a powerful *regular* macro through the default feature `macros`
+  - Provides a powerful _regular_ macro through the default feature `macros`
 - Provides a cleaner builder-like interface
 - Isn't a jack-of-all-trades
-    - Doesn't support weird syntaxes
-    - All struct-style arguments have to have a long form
-    - Focuses on sensible defaults to minimize effort for everyone involved
-    - Doesn't provide help messages, completions, etc.
-    - Doesn't support nested arguments
+  - Doesn't support weird syntaxes
+  - All struct-style arguments have to have a long form
+  - Focuses on sensible defaults to minimize effort for everyone involved
+  - Doesn't provide help messages, completions, etc.
+  - Doesn't support nested arguments
 - Isn't run by committee
-    - Not out of disdain, but there's only one maintainer, so...
+  - Not out of disdain, but there's only one maintainer, so...
 - Isn't a giant project
-    - Those can be great, but can also be overkill
+  - Those can be great, but can also be overkill
 - Has first-class support for custom argument types
 
-\**Disclaimer:* these numbers might not be perfectly up-to-date, but there
+\*_Disclaimer:_ these numbers might not be perfectly up-to-date, but there
 shouldn't be any major changes on sarge's side.
 
 One or more of the above might be a deal-breaker. That's okay! I made sarge so
-that there was a good, light alternative to clap. Use whichever one suits
-your use-case.
+that there was a good, light alternative to clap. Use whichever one suits your
+use-case.
 
 ## Features
 
 - Zero dependencies (yes, this is my favorite feature)
 - First-class "builder" pattern, but better
-    - Used to be the only option, so it's been fleshed out
+  - Used to be the only option, so it's been fleshed out
 - Non-proc macro for building a CLI interface
-    - Supports default values
+  - Supports default values
+- Basic help text generation (feature `help`)
+  - Shows docs and default values (when provided)
 - Supports environment variables
 - Custom argument kinds
-    - Simply impl a trait and it works like a builtin
+  - Simply impl a trait and it works like a builtin
 - The following builtin argument types:
-    - `bool`
-    - `i8/i16/i32/i64/i128/isize`
-    - `u8/u16/u32/u64/u128/usize`
-    - `f32/f64`
-    - `String`
-    - `Vec<T>` where `T: ArgumentType`
+  - `bool`
+  - `i8/i16/i32/i64/i128/isize`
+  - `u8/u16/u32/u64/u128/usize`
+  - `f32/f64`
+  - `String`
+  - `Vec<T>` where `T: ArgumentType`
 
 ## Grocery list
 
 - Better unit testing
-    - There are tests for everything, but they aren't top-priority yet
+  - There are tests for everything, but they aren't top-priority yet
 - More maintainers
 - Better code styling
-    - Probably remove `clippy::pedantic` and get more fine-grained
+  - Probably remove `clippy::pedantic` and get more fine-grained
 - Better, fuller docs
-    - I want them to be top-notch
+  - I want them to be top-notch
 
 ## Contributing
 
 The above mostly stem from two things: a single maintainer, and a lack of
-interest.  If you use sarge, ***please*** star it on GitHub, or even better,
-leave issues!  It tells me that others are interested in the project, and
-pushes me to be more rigorous and develop it more.
+interest. If you use sarge, _**please**_ star it on GitHub, or even better,
+leave issues! It tells me that others are interested in the project, and pushes
+me to be more rigorous and develop it more.
 
-As for the single maintainer, I am happy to accept pull requests. Just make
-sure it passes `cargo fmt`, `cargo clippy` and `cargo test`. Some features may
-be out of scope for sarge; the goal isn't infinite customizability, so if a
-feature significantly complicates anything, it might not be accepted.
+As for the single maintainer, I am happy to accept pull requests. Just make sure
+it passes `cargo fmt`, `cargo clippy` and `cargo test`. Some features may be out
+of scope for sarge; the goal isn't infinite customizability, so if a feature
+significantly complicates anything, it might not be accepted.
 
 ## Examples
 
@@ -87,7 +101,8 @@ disable the `macros` feature, this won't compile:
 use sarge::prelude::*;
 
 // Use Rust doc comments (`/// ...`) inside `sarge!` to provide help text.
-// (The legacy `> "..."` doc syntax has been removed.)
+// - `///` above the struct name becomes program-level help text.
+// - `///` above a field becomes the argument's help text.
 
 // This is a normal, non-proc macro. That means sarge is still
 // zero-dependency! The syntax may seem a little strange at first, but it
@@ -134,6 +149,10 @@ sarge! {
 
     // Convenience: for `Vec<String>`, you can write `vec!["a", "b"]` as a default
     // (elements are converted to `String` automatically).
+    #ok data: Vec<String> = vec!["abc", "def"],
+
+    // Another repeatable `Vec<T>` example: `-H a -H b` accumulates values.
+    #ok 'H' headers: Vec<String>,
 }
 
 // Some utility macros to make this example less verbose.
@@ -158,6 +177,9 @@ fn main() {
         "--bar=badnum",   // The syntax `--arg=val` is valid for long tags.
         "foobar",         // This value isn't part of an argument.
         "--baz", "1,2,3", // Remember this value...
+        "--baz", "7,8,9", // ...and repeat it (values accumulate).
+        "-H", "Connection: close",
+        "-H", "Date: Sun 14 Dec 2025 16:59:06 GMT",
     ];
 
     let env = create_env![
@@ -177,16 +199,31 @@ fn main() {
     assert_eq!(args.env_var, 42);
     assert_eq!(args.foo, None);
     assert_eq!(args.bar, None);
-    assert_eq!(args.baz, Ok(vec![1, 2, 3]));
+    assert_eq!(args.baz, Ok(vec![1, 2, 3, 7, 8, 9]));
+    assert_eq!(
+        args.data.as_deref(),
+        Some(&["abc".into(), "def".into()][..])
+    );
+    assert_eq!(
+        args.headers.as_deref(),
+        Some(&["Connection: close".into(), "Date: Sun 14 Dec 2025 16:59:06 GMT".into()][..])
+    );
 }
 ```
 
 </details>
 
+If you're using `Args::help()` (feature `help`) and you provide a default
+expression in `sarge!`, you can control how that default is displayed by
+overriding [`ArgumentType::help_default_value`](https://docs.rs/sarge/latest/sarge/trait.ArgumentType.html#method.help_default_value)
+in your custom type. Return `Some(String)` for a human-friendly value, or
+`None` to fall back to the raw default expression text.
+
 ## Environment Variables
 
-Sarge also supports using environment variables as arguments. This is automatically
-done when you call `parse`, or you can use `parse_env` to pass the variables yourself.
+Sarge also supports using environment variables as arguments. This is
+automatically done when you call `parse`, or you can use `parse_env` to pass the
+variables yourself.
 
 Here's a quick example:
 

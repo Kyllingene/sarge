@@ -46,9 +46,25 @@ pub trait ArgumentType: Sized {
     #[allow(clippy::missing_errors_doc)]
     fn from_value(val: Option<&str>) -> ArgResult<Self>;
 
+    /// Whether values of this type should be quoted when rendered as elements
+    /// inside a list default (e.g. `Vec<T>`).
+    ///
+    /// This is used by sarge's help output. It does not affect parsing.
+    const HELP_QUOTE: bool = false;
+
     /// If no value was given, what the default should be, if any.
     /// This defaults to `None`.
     fn default_value() -> Option<Self> {
+        None
+    }
+
+    /// Convert a value into a human-friendly default string for help output.
+    ///
+    /// Return `None` to fall back to the raw default expression (tokens).
+    ///
+    /// This is used only for rendering; it does not affect parsing.
+    fn help_default_value(value: &Self) -> Option<String> {
+        let _ = value;
         None
     }
 }
@@ -61,6 +77,10 @@ macro_rules! impl_intrinsics {
 
             fn from_value(val: Option<&str>) -> ArgResult<Self> {
                 val.map(|val| val.parse())
+            }
+
+            fn help_default_value(value: &Self) -> Option<String> {
+                Some(value.to_string())
             }
 
             $(
@@ -88,7 +108,20 @@ impl_intrinsics! {
     usize, ParseIntError;
     f32, ParseFloatError;
     f64, ParseFloatError;
-    String, Infallible;
+}
+
+impl ArgumentType for String {
+    type Error = Infallible;
+
+    const HELP_QUOTE: bool = true;
+
+    fn from_value(val: Option<&str>) -> ArgResult<Self> {
+        Some(Ok(val?.to_string()))
+    }
+
+    fn help_default_value(value: &Self) -> Option<String> {
+        Some(value.clone())
+    }
 }
 
 impl ArgumentType for bool {
@@ -106,6 +139,10 @@ impl ArgumentType for bool {
 
     fn default_value() -> Option<Self> {
         Some(false)
+    }
+
+    fn help_default_value(value: &Self) -> Option<String> {
+        Some(value.to_string())
     }
 }
 
@@ -126,5 +163,25 @@ impl<T: ArgumentType> ArgumentType for Vec<T> {
         }
 
         Some(Ok(values))
+    }
+
+    fn help_default_value(value: &Self) -> Option<String> {
+        let mut out = String::from("[");
+        for (idx, item) in value.iter().enumerate() {
+            if idx > 0 {
+                out.push_str(", ");
+            }
+
+            let item = T::help_default_value(item)?;
+            if T::HELP_QUOTE {
+                use std::fmt::Write as _;
+                let _ = write!(&mut out, "{item:?}");
+            } else {
+                out.push_str(&item);
+            }
+        }
+        out.push(']');
+
+        Some(out)
     }
 }
