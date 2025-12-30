@@ -55,6 +55,8 @@ use-case.
   - Used to be the only option, so it's been fleshed out
 - Non-proc macro for building a CLI interface
   - Supports default values
+- Basic help text generation (feature `help`)
+  - Shows docs and default values (when provided)
 - Supports environment variables
 - Custom argument kinds
   - Simply impl a trait and it works like a builtin
@@ -210,6 +212,12 @@ fn main() {
 ```
 
 </details>
+
+If you're using `Args::help()` (feature `help`) and you provide a default
+expression in `sarge!`, you can control how that default is displayed by
+overriding [`ArgumentType::help_default_value`](https://docs.rs/sarge/latest/sarge/trait.ArgumentType.html#method.help_default_value)
+in your custom type. Return `Some(String)` for a human-friendly value, or
+`None` to fall back to the raw default expression text.
 
 ## Environment Variables
 

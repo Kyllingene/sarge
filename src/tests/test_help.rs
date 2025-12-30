@@ -18,3 +18,16 @@ fn help_returns_string() {
     assert!(s.contains("Name to use"));
     assert!(s.contains("Print help"));
 }
+
+#[cfg(feature = "help")]
+#[test]
+fn help_includes_default_values() {
+    let mut parser = ArgumentReader::new();
+
+    let _name = parser.add::<String>(tag::long("name").doc("Name to use").default_value("bob"));
+    let _flag = parser.add::<bool>(tag::long("flag").default_value("false"));
+
+    let s = parser.help();
+    assert!(s.contains("default: bob"));
+    assert!(s.contains("default: false"));
+}

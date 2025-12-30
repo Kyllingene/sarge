@@ -1,4 +1,8 @@
 use crate::prelude::*;
+use crate::{ArgResult, ArgumentType};
+use std::convert::Infallible;
+use std::fmt;
+use std::str::FromStr;
 
 mod anyhow {
     pub use ::std::result::Result::Ok;
@@ -102,6 +106,54 @@ fn derived_args_docs_are_used_for_help() {
 }
 
 #[cfg(feature = "help")]
+#[test]
+fn macro_help_includes_default_values() {
+    let s = DefaultArgs::help();
+    assert!(s.contains("default: 127.0.0.1:9912"));
+    assert!(s.contains("default: 42"));
+    assert!(s.contains("default: true"));
+
+    let s = FromStrDefaultHelpArgs::help();
+    assert!(s.contains("default: fromstr-default"));
+
+    let s = HttproxyArgs::help();
+    println!("{s}");
+    let normalized: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+    assert!(
+        normalized.contains("(default:127.0.0.1:8081)"),
+        "help:\n{s}"
+    );
+    assert!(
+        normalized.contains("(default:127.0.0.1:8082)"),
+        "help:\n{s}"
+    );
+    assert!(normalized.contains("(default:info)"), "help:\n{s}");
+    assert!(
+        normalized.contains("default:[\"hello\",\"nihao\",\"xxxxx\"]"),
+        "help:\n{s}"
+    );
+    assert!(
+        normalized.contains("(default:[1,2,3,4,5,6,7,8])"),
+        "help:\n{s}"
+    );
+
+    let s = DefaultFnHelpArgs::help();
+    let normalized: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+    assert!(normalized.contains("(default:disabled)"), "help:\n{s}");
+    assert!(normalized.contains("(default:\"\")"), "help:\n{s}");
+}
+
+#[test]
+fn default_fn_help_args_defaults_are_applied() {
+    let (args, remainder) =
+        DefaultFnHelpArgs::parse_cli(["bin"]).expect("failed to parse DefaultFnHelpArgs");
+
+    assert_eq!(remainder, vec!["bin"]);
+    assert_eq!(args.auth, Some(AuthArg::default()));
+    assert_eq!(args.empty.as_deref(), Some(""));
+}
+
+#[cfg(feature = "help")]
 sarge! {
     /// Docs line 1
     /// Docs line 2
@@ -165,6 +217,120 @@ sarge! {
     #ok 'd' data: Vec<String> = vec![r#"{"name":"hello"}"#],
 }
 
+sarge! {
+    #[derive(Debug, PartialEq, Eq)]
+    FromStrDefaultHelpArgs,
+
+    from_str_val: String = <String as ::std::str::FromStr>::from_str("fromstr-default").unwrap(),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BindAddr(String);
+
+impl fmt::Display for BindAddr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl FromStr for BindAddr {
+    type Err = Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(s.to_string()))
+    }
+}
+
+impl ArgumentType for BindAddr {
+    type Error = Infallible;
+
+    fn from_value(val: Option<&str>) -> ArgResult<Self> {
+        Some(Ok(Self(val?.to_string())))
+    }
+
+    fn help_default_value(value: &Self) -> Option<String> {
+        Some(value.0.clone())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LogLevel(String);
+
+impl fmt::Display for LogLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl ArgumentType for LogLevel {
+    type Error = Infallible;
+
+    fn from_value(val: Option<&str>) -> ArgResult<Self> {
+        Some(Ok(Self(val?.to_string())))
+    }
+
+    fn help_default_value(value: &Self) -> Option<String> {
+        Some(value.0.clone())
+    }
+}
+
+sarge! {
+    #[derive(Debug)]
+    HttproxyArgs,
+
+    /// The bind addr for serving.
+    #ok 'l' @HTTPOXY_BIND bind: BindAddr = BindAddr::from_str("127.0.0.1:8081").unwrap(),
+
+    /// the dir/file will be served
+    #ok 'r' @HTTPOXY_REVERSE reverse: BindAddr = BindAddr::from_str("127.0.0.1:8082").unwrap(),
+
+    /// log level: "" means no log, v - info, vv - debug, vvv - trace
+    #ok 'v' @HTTPOXY_LOG_LEVEL log_level: LogLevel = LogLevel("info".into()),
+
+    /// log with color?
+    #ok colored: bool = false,
+
+    /// help
+    #ok 'h' help: bool = false,
+
+    #ok 'c' vec: Vec<String> = vec!["hello", "nihao", "xxxxx"],
+
+    /// test vec2
+    #ok 'c' vec2: Vec<u8> = Vec::from([1, 2, 3, 4, 5, 6, 7, 8]),
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct AuthArg {
+    enabled: bool,
+}
+
+impl ArgumentType for AuthArg {
+    type Error = Infallible;
+
+    fn from_value(_val: Option<&str>) -> ArgResult<Self> {
+        Some(Ok(Self { enabled: true }))
+    }
+
+    fn help_default_value(value: &Self) -> Option<String> {
+        Some(if value.enabled {
+            "enabled".to_string()
+        } else {
+            "disabled".to_string()
+        })
+    }
+}
+
+sarge! {
+    #[derive(Debug)]
+    DefaultFnHelpArgs,
+
+    /// Optional basic auth in the form "name@password" (enables HTTP Basic auth).
+    #ok 'a' auth: AuthArg = AuthArg::default(),
+
+    /// Empty string default.
+    #ok empty: String = "",
+}
+
 #[cfg(feature = "macros")]
 sarge! {
     RepeatableVecArgs,
@@ -219,6 +385,30 @@ fn defaults_are_applied() {
     assert_eq!(args.num, Some(42));
     assert_eq!(args.help, Ok(true));
     assert_eq!(args.data, Some(vec![r#"{"name":"hello"}"#.to_string()]));
+}
+
+#[test]
+fn httproxy_style_defaults_are_applied() {
+    let (args, remainder) =
+        HttproxyArgs::parse_cli(["bin"]).expect("failed to parse httproxy args");
+
+    assert_eq!(remainder, vec!["bin"]);
+    assert_eq!(
+        args.bind.as_ref().map(|b| b.0.as_str()),
+        Some("127.0.0.1:8081")
+    );
+    assert_eq!(
+        args.reverse.as_ref().map(|b| b.0.as_str()),
+        Some("127.0.0.1:8082")
+    );
+    assert_eq!(args.log_level.as_ref().map(|l| l.0.as_str()), Some("info"));
+    assert_eq!(args.colored, Some(false));
+    assert_eq!(args.help, Some(false));
+    assert_eq!(
+        args.vec.as_deref(),
+        Some(&["hello".into(), "nihao".into(), "xxxxx".into()][..])
+    );
+    assert_eq!(args.vec2.as_deref(), Some(&[1, 2, 3, 4, 5, 6, 7, 8][..]));
 }
 
 #[test]

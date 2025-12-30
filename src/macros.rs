@@ -67,6 +67,17 @@ macro_rules! __parse_arg {
 
 #[macro_export]
 #[doc(hidden)]
+macro_rules! __sarge_eval_default_for_help {
+    ( $typ:ty, $default:literal ) => {
+        $crate::__sarge_default::<$typ, _>($default)
+    };
+    ( $typ:ty, $default:expr ) => {
+        $crate::__sarge_default_expr::<$typ>($default)
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
 macro_rules! __arg_typ {
     ( $name:ident, err, $typ:ty, ) => {
         $crate::ArgResult<$typ>
@@ -330,7 +341,18 @@ macro_rules! sarge {
 
                 $(
                     parser.add::<$typ>(
-                        $crate::__var_tag!($( $short )? $long $( $env )? $( $field_doc )*)
+                        {
+                            let tag =
+                                $crate::__var_tag!($( $short )? $long $( $env )? $( $field_doc )*);
+                            $(
+                                let tag = $crate::__sarge_tag_with_default(
+                                    tag,
+                                    stringify!($default),
+                                    || $crate::__sarge_eval_default_for_help!($typ, $default),
+                                );
+                            )?
+                            tag
+                        }
                     );
                 )*
 

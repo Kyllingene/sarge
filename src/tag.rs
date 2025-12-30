@@ -32,6 +32,8 @@ pub fn env<E: Into<String>>(e: E) -> Full {
 
         #[cfg(feature = "help")]
         doc: None,
+        #[cfg(feature = "help")]
+        default: None,
     }
 }
 
@@ -47,6 +49,10 @@ pub struct Full {
     /// The documentation for this argument.
     #[cfg(feature = "help")]
     pub doc: Option<String>,
+
+    /// The default value for this argument, if known.
+    #[cfg(feature = "help")]
+    pub(crate) default: Option<String>,
 }
 
 impl Full {
@@ -80,6 +86,27 @@ impl Full {
             self.doc = Some(doc);
             self
         }
+    }
+
+    /// Add a default value to the argument. If `default.is_empty()`, instead
+    /// shows an empty default.
+    ///
+    /// Only available on feature `help`.
+    #[must_use]
+    #[cfg(feature = "help")]
+    pub fn default_value<S: Into<String>>(mut self, default: S) -> Self {
+        self.default = Some(default.into());
+        self
+    }
+
+    /// Remove the default value for the argument.
+    ///
+    /// Only available on feature `help`.
+    #[must_use]
+    #[cfg(feature = "help")]
+    pub fn clear_default_value(mut self) -> Self {
+        self.default = None;
+        self
     }
 
     /// Returns whether or not this tag has a CLI component.
@@ -127,6 +154,8 @@ impl From<Cli> for Full {
 
             #[cfg(feature = "help")]
             doc: None,
+            #[cfg(feature = "help")]
+            default: None,
         }
     }
 }
@@ -169,6 +198,8 @@ impl Cli {
 
             #[cfg(feature = "help")]
             doc: None,
+            #[cfg(feature = "help")]
+            default: None,
         }
     }
 
